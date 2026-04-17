@@ -459,7 +459,7 @@ class SessionSummary(BaseModel):
 
 class ReportOutput(BaseModel):
     session_id: str
-    # Signed GCS URL for downloading the PDF
+    # URL the frontend can use to fetch the generated PDF
     gcs_url: str
     generated_at: str
 

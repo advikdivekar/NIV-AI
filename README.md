@@ -10,7 +10,7 @@ Frontend (Dev 3)
   -> Deterministic engines (India costs, affordability, scenarios, risk)
   -> Firestore session persistence
   -> Dev 2 orchestrator for behavioral analysis, presentation, roundtable, verdict
-  -> PDF generator / optional GCS upload
+  -> PDF generator / direct download
 ```
 
 ## Key Backend Responsibilities
@@ -58,9 +58,6 @@ GOOGLE_APPLICATION_CREDENTIALS=serviceAccountKey.json
 FIREBASE_PROJECT_ID=
 FIREBASE_PRIVATE_KEY=
 FIREBASE_CLIENT_EMAIL=
-
-# Optional report uploads
-GCS_BUCKET_NAME=
 
 # Cloud Run
 PORT=8080
