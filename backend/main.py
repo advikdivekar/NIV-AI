@@ -81,16 +81,16 @@ async def startup_event():
 
     try:
         initialize_firebase()
-        print("✅ Firebase initialized")
+        print("Firebase initialized")
     except Exception as e:
-        print(f"⚠️ Firebase init failed: {e}")
+        print(f"Firebase init failed: {e}")
 
     try:
         from agents.orchestration.orchestrator import Orchestrator
         orchestrator = Orchestrator()
-        print("✅ Orchestrator initialized")
+        print("Orchestrator initialized")
     except Exception as e:
-        print(f"⚠️ Orchestrator init failed (Dev 2 code may not be ready): {e}")
+        print(f"Orchestrator init failed (Dev 2 code may not be ready): {e}")
 
 
 # ---------------------------------------------------------------------------
