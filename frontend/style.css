@@ -1,0 +1,460 @@
+/* ─── Niv AI — Custom Styles (on top of Pico CSS) ──────────────────────────── */
+
+/* Hero section */
+.hero {
+    text-align: center;
+    padding: 3rem 0 2rem;
+}
+
+.hero h1 {
+    font-size: 2.4rem;
+    margin-bottom: 1rem;
+}
+
+.hero p {
+    max-width: 600px;
+    margin: 0 auto 2rem;
+    color: var(--pico-muted-color);
+    font-size: 1.1rem;
+    line-height: 1.6;
+}
+
+.hero small {
+    display: block;
+    margin-top: 0.75rem;
+    color: var(--pico-muted-color);
+}
+
+.cta-button {
+    font-size: 1.15rem;
+    padding: 0.9rem 2.5rem;
+}
+
+/* Step progress */
+.step-progress {
+    margin-bottom: 2rem;
+}
+
+.step-bar {
+    height: 6px;
+    background: var(--pico-muted-border-color);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+}
+
+.step-fill {
+    height: 100%;
+    background: var(--pico-primary);
+    transition: width 0.3s ease;
+    width: 33%;
+}
+
+.step-labels {
+    display: flex;
+    justify-content: space-between;
+}
+
+.step-label {
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+}
+
+.step-label.active {
+    color: var(--pico-primary);
+    font-weight: 600;
+}
+
+.step-label.done {
+    color: var(--pico-ins-color);
+}
+
+/* Form navigation */
+.form-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 2rem;
+    gap: 1rem;
+}
+
+.form-nav .secondary {
+    background: transparent;
+    border: 1px solid var(--pico-muted-border-color);
+    color: var(--pico-color);
+}
+
+/* Review summary */
+#review-summary article {
+    margin-bottom: 1rem;
+}
+
+#review-summary .review-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+#review-summary .review-row:last-child {
+    border-bottom: none;
+}
+
+#review-summary .review-label {
+    color: var(--pico-muted-color);
+    font-size: 0.9rem;
+}
+
+#review-summary .review-value {
+    font-weight: 500;
+}
+
+/* Loading view */
+.loading-container {
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.agent-status-list {
+    max-width: 500px;
+    margin: 2rem auto;
+    text-align: left;
+}
+
+.agent-row {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    gap: 0.75rem;
+}
+
+.agent-icon {
+    font-size: 1.3rem;
+    width: 2rem;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.agent-name {
+    flex: 1;
+}
+
+.agent-state {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-weight: 500;
+    min-width: 70px;
+    text-align: center;
+}
+
+.agent-state.waiting {
+    background: var(--pico-muted-border-color);
+    color: var(--pico-muted-color);
+}
+
+.agent-state.running {
+    background: #fff3cd;
+    color: #856404;
+    animation: pulse 1.5s infinite;
+}
+
+.agent-state.done {
+    background: #d4edda;
+    color: #155724;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* Report view */
+.verdict-banner {
+    text-align: center;
+    padding: 2rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+}
+
+.verdict-banner.safe {
+    background: #d4edda;
+    border: 2px solid #28a745;
+}
+
+.verdict-banner.risky {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+}
+
+.verdict-banner.reconsider {
+    background: #f8d7da;
+    border: 2px solid #dc3545;
+}
+
+.verdict-banner h1 {
+    margin-bottom: 0.5rem;
+}
+
+.verdict-banner .verdict-word {
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.verdict-banner.safe .verdict-word {
+    color: #155724;
+}
+
+.verdict-banner.risky .verdict-word {
+    color: #856404;
+}
+
+.verdict-banner.reconsider .verdict-word {
+    color: #721c24;
+}
+
+.verdict-banner .verdict-reason {
+    font-size: 1.1rem;
+    margin-top: 0.5rem;
+}
+
+.confidence-badge {
+    display: inline-block;
+    margin-top: 0.75rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+/* Report sections */
+.report-section {
+    margin-bottom: 2rem;
+}
+
+.report-section h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--pico-muted-border-color);
+}
+
+/* Scenario cards */
+.scenario-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.scenario-card {
+    padding: 1.25rem;
+    border-radius: 8px;
+    border: 1px solid var(--pico-muted-border-color);
+}
+
+.scenario-card.survive {
+    border-left: 4px solid #28a745;
+}
+
+.scenario-card.fail {
+    border-left: 4px solid #dc3545;
+}
+
+.scenario-card h4 {
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+}
+
+.scenario-card .key-number {
+    font-weight: 600;
+    margin: 0.5rem 0;
+}
+
+.scenario-card .mitigation {
+    font-size: 0.9rem;
+    color: var(--pico-muted-color);
+    margin-top: 0.5rem;
+}
+
+/* Severity badges */
+.badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge.critical {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.badge.high {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.badge.medium {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.badge.low {
+    background: #d4edda;
+    color: #155724;
+}
+
+/* Ratio bars */
+.ratio-bar-container {
+    margin: 0.75rem 0;
+}
+
+.ratio-bar-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+}
+
+.ratio-bar {
+    height: 10px;
+    background: var(--pico-muted-border-color);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.ratio-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.5s ease;
+}
+
+.ratio-bar-fill.good {
+    background: #28a745;
+}
+
+.ratio-bar-fill.warn {
+    background: #ffc107;
+}
+
+.ratio-bar-fill.danger {
+    background: #dc3545;
+}
+
+/* Challenge cards */
+.challenge-card {
+    padding: 1rem;
+    border: 1px solid var(--pico-muted-border-color);
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+}
+
+.challenge-card .assumption {
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+}
+
+.challenge-card .challenge-text {
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+}
+
+.challenge-card .impact {
+    font-size: 0.9rem;
+    color: var(--pico-muted-color);
+}
+
+/* Recommendation list */
+.recommendations-list {
+    list-style: none;
+    padding: 0;
+}
+
+.recommendations-list li {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.recommendations-list li::before {
+    content: "→";
+    position: absolute;
+    left: 0;
+    color: var(--pico-primary);
+    font-weight: 600;
+}
+
+/* Expandable details */
+.expandable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.expandable-content {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--pico-card-background-color);
+    border-radius: 8px;
+    white-space: pre-wrap;
+    line-height: 1.7;
+    font-size: 0.95rem;
+}
+
+.expandable-content.open {
+    display: block;
+}
+
+/* Report actions */
+.report-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+}
+
+/* Error card */
+.error-card {
+    text-align: center;
+    max-width: 500px;
+    margin: 3rem auto;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 2rem 0;
+    color: var(--pico-muted-color);
+}
+
+/* Print styles */
+@media print {
+
+    header,
+    footer,
+    .report-actions,
+    .form-nav {
+        display: none;
+    }
+
+    .view {
+        display: none !important;
+    }
+
+    #report-view {
+        display: block !important;
+    }
+}

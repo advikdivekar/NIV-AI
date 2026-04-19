@@ -1,89 +1,393 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
-  <meta charset="UTF-8">
-  <title>NIV AI</title>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Playfair+Display:wght@400;700;900&display=swap"
-    rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <link rel="stylesheet" href="css/roundtable.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Niv AI — Should You Buy This House?</title>
+
+    <!-- Pico CSS — classless styling -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
 
-  <!-- TOP BAR -->
-  <div id="top-bar">
-    <div class="logo">
-      NIV
-      <span class="logo-tag">BETA v2.0</span>
-    </div>
-    <div class="center-tag">PROPERTY INVESTMENT VERDICT ENGINE</div>
-    <div class="nav-controls">
-      <button class="nav-btn" id="btn-back" onclick="goBack()" disabled>← Back</button>
-      <button class="nav-btn danger" id="btn-reset" onclick="resetSystem()" disabled>Reset ✗</button>
-      <div id="session-badge">SID: —</div>
-    </div>
-  </div>
+    <header class="container">
+        <nav>
+            <ul>
+                <li><strong>Niv AI</strong></li>
+            </ul>
+            <ul>
+                <li><a href="#" id="nav-new" onclick="resetToForm()">New Analysis</a></li>
+                <li><a href="#" id="nav-about" onclick="showAbout()">How It Works</a></li>
+            </ul>
+        </nav>
+    </header>
 
-  <!-- CANVAS FOR ALL CONTENT -->
-  <div id="canvas">
+    <main class="container">
 
-    <!-- STATE 0: LOGIN -->
-    <div id="state-0" class="state active">
-      <div class="card login-card">
-        <div class="niv-logo-block">
-          NIV<sup>AI</sup>
-        </div>
-        <div class="login-tagline">Multi-Agent Property Evaluator</div>
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- VIEW 1: LANDING                                                    -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <section id="landing-view" class="view">
+            <div class="hero">
+                <h1>Should you buy this house?</h1>
+                <p>Get an AI-powered decision audit in under a minute. We analyze your finances, stress-test your
+                    future, evaluate the property, and challenge your assumptions — so you don't make a ₹50 lakh
+                    mistake.</p>
+                <button onclick="showView('form-view')" class="cta-button">Start Your Analysis</button>
+                <small>Free. No sign-up required. Takes 3 minutes.</small>
+            </div>
+        </section>
 
-        <div class="login-desc">
-          <strong>SECURE TERMINAL:</strong> Connect to the NIV reasoning cluster. We analyze your financial profile,
-          real estate metrics, and behavioral biases to render an objective verdict on your property investment.
-        </div>
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- VIEW 2: INPUT FORM (3-step wizard)                                 -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <section id="form-view" class="view" style="display:none">
 
-        <div class="trust-badges">
-          <span class="trust-badge">RERA Configured</span>
-          <span class="trust-badge">RBI Compliant</span>
-          <span class="trust-badge">Bias Mitigated</span>
-        </div>
+            <!-- Progress bar -->
+            <div class="step-progress">
+                <div class="step-bar">
+                    <div class="step-fill" id="step-fill"></div>
+                </div>
+                <div class="step-labels">
+                    <span id="step-label-1" class="step-label active">1. Your Finances</span>
+                    <span id="step-label-2" class="step-label">2. The Property</span>
+                    <span id="step-label-3" class="step-label">3. Review</span>
+                </div>
+            </div>
 
-        <button class="btn btn-accent" id="btn-enter" onclick="window.location.href='pages/chat.html'">
-          START ANALYSIS ⟶
-        </button>
-        <div class="api-note">v2.0 Backend Link Active</div>
-      </div>
-    </div>
+            <!-- Step 1: Financial Info -->
+            <div id="step-1" class="form-step">
+                <h2>Your Financial Situation</h2>
+                <p>All numbers in ₹ (Indian Rupees). Be honest — accuracy improves results.</p>
 
-  </div>
+                <div class="grid">
+                    <label>
+                        Monthly Take-Home Income *
+                        <input type="number" id="monthly_income" placeholder="e.g. 120000" required min="1">
+                        <small>Net salary after tax deductions</small>
+                    </label>
+                    <label>
+                        Employment Type
+                        <select id="employment_type">
+                            <option value="salaried" selected>Salaried</option>
+                            <option value="freelance">Freelance</option>
+                            <option value="business">Business Owner</option>
+                        </select>
+                    </label>
+                </div>
 
-  <!-- BOTTOM BAR -->
-  <div id="bottom-bar">
-    <div class="status-live">
-      <div class="status-dot"></div>
-      SYSTEM ONLINE
-    </div>
-    <div id="state-label">SECURE LOGIN</div>
-  </div>
+                <div class="grid">
+                    <label>
+                        Years at Current Job
+                        <input type="number" id="years_in_current_job" value="2" min="0" max="50" step="0.5">
+                    </label>
+                    <label>
+                        Expected Annual Salary Growth (%)
+                        <input type="number" id="expected_annual_growth_pct" value="8" min="0" max="50" step="0.5">
+                    </label>
+                </div>
 
-  <!-- TOAST NOTIFICATION -->
-  <div id="toast"></div>
+                <div class="grid">
+                    <label>
+                        Existing EMIs (total/month)
+                        <input type="number" id="existing_emis" value="0" min="0">
+                        <small>Car loan, personal loan, education loan, etc.</small>
+                    </label>
+                    <label>
+                        Monthly Expenses
+                        <input type="number" id="monthly_expenses" placeholder="Leave blank = 40% of income" min="0">
+                        <small>Household + lifestyle. Leave blank for auto-estimate.</small>
+                    </label>
+                </div>
 
-  <!-- OVERLAY LOADING -->
-  <div id="loading-overlay">
-    <div class="loading-box">
-      <div class="loading-spinner"></div>
-      <div class="loading-text" id="loading-msg">Processing</div>
-      <div class="loading-sub" id="loading-sub">Connecting...</div>
-    </div>
-  </div>
+                <div class="grid">
+                    <label>
+                        Current Rent
+                        <input type="number" id="current_rent" value="0" min="0">
+                    </label>
+                    <label>
+                        Liquid Savings *
+                        <input type="number" id="liquid_savings" placeholder="e.g. 2000000" required min="0">
+                        <small>FDs + savings account + liquid mutual funds</small>
+                    </label>
+                </div>
 
-  <!-- JS -->
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/roundtable.js"></script>
-  <script src="js/charts.js"></script>
+                <div class="grid">
+                    <label>
+                        Other Investments
+                        <input type="number" id="other_investments" value="0" min="0">
+                        <small>PPF, stocks, gold — non-liquid</small>
+                    </label>
+                    <label>
+                        Dependents
+                        <input type="number" id="dependents" value="0" min="0" max="20">
+                    </label>
+                </div>
+
+                <label>
+                    Spouse Monthly Income
+                    <input type="number" id="spouse_income" value="0" min="0">
+                    <small>Leave 0 if single income household</small>
+                </label>
+
+                <label>
+                    Anything else we should know? (optional)
+                    <textarea id="financial_notes" rows="3"
+                        placeholder="e.g. 'Parents may contribute ₹10L for down payment' or 'Wife plans to start working next year'"></textarea>
+                </label>
+
+                <div class="form-nav">
+                    <button onclick="showView('landing-view')" class="secondary">Back</button>
+                    <button onclick="nextStep(2)">Next: Property Details →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Property Info -->
+            <div id="step-2" class="form-step" style="display:none">
+                <h2>The Property</h2>
+                <p>Tell us about the house you're considering.</p>
+
+                <div class="grid">
+                    <label>
+                        Property Price (₹) *
+                        <input type="number" id="property_price" placeholder="e.g. 8500000" required min="100000">
+                    </label>
+                    <label>
+                        Location / Area *
+                        <input type="text" id="location_area" placeholder="e.g. Andheri West" required>
+                        <small>Mumbai micro-market name</small>
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>
+                        Configuration
+                        <select id="configuration">
+                            <option value="1BHK">1 BHK</option>
+                            <option value="2BHK" selected>2 BHK</option>
+                            <option value="3BHK">3 BHK</option>
+                            <option value="4BHK">4 BHK</option>
+                            <option value="5+BHK">5+ BHK</option>
+                        </select>
+                    </label>
+                    <label>
+                        Carpet Area (sq ft) *
+                        <input type="number" id="carpet_area_sqft" placeholder="e.g. 650" required min="50" max="50000">
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>
+                        Down Payment Available (₹) *
+                        <input type="number" id="down_payment_available" placeholder="e.g. 1500000" required min="0">
+                    </label>
+                    <label>
+                        Expected Interest Rate (%)
+                        <input type="number" id="expected_interest_rate" value="8.5" min="1" max="20" step="0.1">
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>
+                        Loan Tenure (years)
+                        <input type="number" id="loan_tenure_years" value="20" min="1" max="30">
+                    </label>
+                    <label>
+                        Buyer Gender
+                        <select id="buyer_gender">
+                            <option value="male" selected>Male</option>
+                            <option value="female">Female (lower stamp duty in MH)</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>
+                        Ready to Move?
+                        <select id="is_ready_to_move">
+                            <option value="true" selected>Yes — Ready to Move</option>
+                            <option value="false">No — Under Construction</option>
+                        </select>
+                    </label>
+                    <label>
+                        RERA Registered?
+                        <select id="is_rera_registered">
+                            <option value="null" selected>Don't Know</option>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="grid">
+                    <label>
+                        Builder Name (optional)
+                        <input type="text" id="builder_name" placeholder="e.g. Godrej Properties">
+                    </label>
+                    <label>
+                        Possession Date (if under construction)
+                        <input type="text" id="possession_date" placeholder="e.g. Dec 2026">
+                    </label>
+                </div>
+
+                <fieldset>
+                    <label>
+                        <input type="checkbox" id="is_first_property" checked>
+                        This is my first property
+                    </label>
+                </fieldset>
+
+                <label>
+                    Anything else about this property? (optional)
+                    <textarea id="property_notes" rows="3"
+                        placeholder="e.g. 'Broker said registration is extra ₹7L' or 'Society is 15 years old, redevelopment rumors'"></textarea>
+                </label>
+
+                <div class="form-nav">
+                    <button onclick="prevStep(1)" class="secondary">← Back</button>
+                    <button onclick="nextStep(3)">Next: Review →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Review -->
+            <div id="step-3" class="form-step" style="display:none">
+                <h2>Review Your Information</h2>
+                <p>Make sure everything looks right before we analyze.</p>
+
+                <div id="review-summary"></div>
+
+                <div class="form-nav">
+                    <button onclick="prevStep(2)" class="secondary">← Edit</button>
+                    <button onclick="submitAnalysis()" id="submit-btn">Analyze My Decision</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- VIEW 3: LOADING                                                    -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <section id="loading-view" class="view" style="display:none">
+            <div class="loading-container">
+                <h2>Analyzing your decision...</h2>
+                <p>Our AI agents are working through your situation. This takes 20–40 seconds.</p>
+
+                <div class="agent-status-list">
+                    <div class="agent-row" id="agent-1-status">
+                        <span class="agent-icon">📋</span>
+                        <span class="agent-name">Structuring your information</span>
+                        <span class="agent-state waiting">waiting</span>
+                    </div>
+                    <div class="agent-row" id="agent-2-status">
+                        <span class="agent-icon">💰</span>
+                        <span class="agent-name">Analyzing affordability</span>
+                        <span class="agent-state waiting">waiting</span>
+                    </div>
+                    <div class="agent-row" id="agent-3-status">
+                        <span class="agent-icon">⚠️</span>
+                        <span class="agent-name">Stress-testing scenarios</span>
+                        <span class="agent-state waiting">waiting</span>
+                    </div>
+                    <div class="agent-row" id="agent-4-status">
+                        <span class="agent-icon">🏠</span>
+                        <span class="agent-name">Evaluating property & market</span>
+                        <span class="agent-state waiting">waiting</span>
+                    </div>
+                    <div class="agent-row" id="agent-5-status">
+                        <span class="agent-icon">🔍</span>
+                        <span class="agent-name">Challenging assumptions</span>
+                        <span class="agent-state waiting">waiting</span>
+                    </div>
+                    <div class="agent-row" id="agent-6-status">
+                        <span class="agent-icon">⚖️</span>
+                        <span class="agent-name">Composing final verdict</span>
+                        <span class="agent-state waiting">waiting</span>
+                    </div>
+                </div>
+                <progress id="loading-progress"></progress>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- VIEW 4: DECISION REPORT                                            -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <section id="report-view" class="view" style="display:none">
+            <div id="report-content"></div>
+
+            <div class="report-actions">
+                <button onclick="resetToForm()" class="secondary">Analyze Another Property</button>
+                <button onclick="window.print()">Print / Save PDF</button>
+            </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- VIEW 5: ERROR                                                      -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <section id="error-view" class="view" style="display:none">
+            <article class="error-card">
+                <h2>Something went wrong</h2>
+                <p id="error-message"></p>
+                <button onclick="resetToForm()">Try Again</button>
+            </article>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- VIEW 6: ABOUT / HOW IT WORKS                                       -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <section id="about-view" class="view" style="display:none">
+            <h2>How Niv AI Works</h2>
+            <p>Niv AI runs your home-buying decision through 6 specialized AI agents, each focused on a different
+                dimension of the decision.</p>
+
+            <article>
+                <h3>📋 Agent 1: Context Synthesizer</h3>
+                <p>Structures your financial and property data. Identifies implicit assumptions. Flags missing
+                    information.</p>
+            </article>
+            <article>
+                <h3>💰 Agent 2: Financial Analyst</h3>
+                <p>Evaluates true affordability — not just EMI, but total cost of ownership, cash flow impact, and tax
+                    benefits.</p>
+            </article>
+            <article>
+                <h3>⚠️ Agent 3: Risk Simulator</h3>
+                <p>Stress-tests your decision against 4 real scenarios: job loss, interest rate hikes, unexpected
+                    expenses, and income stagnation.</p>
+            </article>
+            <article>
+                <h3>🏠 Agent 4: Property Analyst</h3>
+                <p>Evaluates the property against Mumbai market benchmarks. Checks pricing fairness, location risks, and
+                    rent-vs-buy math.</p>
+            </article>
+            <article>
+                <h3>🔍 Agent 5: Assumption Challenger</h3>
+                <p>The adversarial agent — finds holes in your assumptions, identifies blind spots, and flags emotional
+                    bias in your decision.</p>
+            </article>
+            <article>
+                <h3>⚖️ Agent 6: Decision Composer</h3>
+                <p>Synthesizes all analyses into a clear verdict (Safe / Risky / Reconsider) with specific reasoning and
+                    actionable advice.</p>
+            </article>
+
+            <article>
+                <h3>Trust & Transparency</h3>
+                <p>Every financial number in the report is calculated by deterministic code — not generated by AI. The
+                    AI interprets and explains, but never invents numbers. All reasoning is traceable.</p>
+            </article>
+
+            <button onclick="showView('landing-view')" class="secondary">← Back</button>
+        </section>
+
+    </main>
+
+    <footer class="container">
+        <small>Niv AI is for informational purposes only. Not financial advice. Consult a qualified advisor.</small>
+    </footer>
+
+    <script src="/static/app.js"></script>
 </body>
 
 </html>
