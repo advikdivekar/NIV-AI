@@ -243,6 +243,28 @@ class RiskScoreOutput(BaseModel):
 
 
 # -----------------------------------------------------------------------------
+# Reverse calculator output (PR: path-to-safe-calculator)
+# -----------------------------------------------------------------------------
+
+class PathToSafeOutput(BaseModel):
+    """Output of the 'Path to Safe' reverse calculator."""
+    # Current affordability status: comfortable, stretched, or overextended
+    current_status: AffordabilityStatus
+    # True if the user is already in 'safe' territory (EMI ≤ 35%, all scenarios pass)
+    is_already_safe: bool
+    # Extra rupees the user must add to down payment to reach safe status
+    additional_down_payment_needed: float
+    # Total down payment required for safe status
+    target_down_payment: float
+    # Maximum property price at current down payment that is safe
+    target_property_price: float
+    # Minimum monthly income needed at current property price / down payment
+    target_monthly_income: float
+    # Human-readable explanation of what needs to change
+    explanation: str
+
+
+# -----------------------------------------------------------------------------
 # AI agent outputs
 # -----------------------------------------------------------------------------
 

@@ -46,6 +46,8 @@ from engines.india_defaults import calculate_true_total_cost
 from agents.deterministic.financial_reality import calculate_affordability
 from agents.deterministic.scenario_simulation import run_all_scenarios
 from agents.deterministic.risk_scorer import calculate_risk_score
+# Path-to-Safe reverse calculator (PR: path-to-safe-calculator)
+from agents.deterministic.path_to_safe import calculate_path_to_safe
 from engines.pdf_generator import generate_pdf
 from storage.gcs_client import upload_pdf
 
@@ -268,6 +270,39 @@ async def analyze_route(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+
+# ---------------------------------------------------------------------------
+# Path to Safe — reverse calculator
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/path-to-safe/{session_id}", response_model=APIResponse)
+async def path_to_safe_route(
+    session_id: str,
+    user_input: UserInput,
+    uid: str = Depends(verify_token),
+):
+    """
+    Calculates the exact rupee amount needed to fix a 'reconsider' verdict.
+    Returns how much more down payment, what max property price is safe,
+    and what minimum income is needed — all via deterministic binary search.
+    Pure math, no LLM, sub-50ms response.
+    """
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("user_id") != uid:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        result = calculate_path_to_safe(user_input)
+        return APIResponse(
+            success=True,
+            message="Path to safe calculated",
+            data=result.model_dump(),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Path to safe calculation failed: {str(e)}")
 
 
 # ---------------------------------------------------------------------------
