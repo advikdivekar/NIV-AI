@@ -13,8 +13,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect, Query, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from firebase.firebase_admin import initialize_firebase
 from firebase_admin import auth as firebase_auth
@@ -59,6 +63,12 @@ app = FastAPI(
     description="Risk-aware home buying decision intelligence for Indian families",
     version="1.0.0",
 )
+
+# Rate limiter — keyed on client IP. Protects LLM-backed endpoints from abuse.
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS — allow frontend origin. In development allow all origins.
 frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -173,7 +183,9 @@ async def save_behavioral_route(
 # ---------------------------------------------------------------------------
 
 @app.post("/analyze/{session_id}", response_model=APIResponse)
+@limiter.limit("5/10minutes")
 async def analyze_route(
+    request: Request,
     session_id: str,
     user_input: UserInput,
     uid: str = Depends(verify_token),
@@ -341,7 +353,9 @@ async def analyze_brochure_route(
 # ---------------------------------------------------------------------------
 
 @app.post("/conversation/{session_id}", response_model=APIResponse)
+@limiter.limit("10/minute")
 async def conversation_route(
+    request: Request,
     session_id: str,
     message: ConversationMessage,
     uid: str = Depends(verify_token),
