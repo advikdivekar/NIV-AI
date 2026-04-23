@@ -8,6 +8,7 @@ This file is deliberately thin:
 """
 import os
 import json
+import asyncio
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -195,25 +196,37 @@ async def analyze_route(
         raise HTTPException(status_code=403, detail="Access denied")
 
     try:
-        # Save financial inputs
-        save_financial_inputs(session_id, user_input.model_dump())
+        # Save financial inputs (fire-and-forget — never blocks the pipeline)
+        asyncio.create_task(
+            asyncio.to_thread(save_financial_inputs, session_id, user_input.model_dump())
+        )
 
-        # --- Run deterministic agents ---
+        # --- Run deterministic agents with parallelization ---
+        # india_costs and financial_reality are independent so run concurrently.
+        # run_all_scenarios depends on financial_reality, and
+        # calculate_risk_score depends on both — so those remain sequential.
         loan_amount = user_input.property_price - user_input.down_payment
         if loan_amount < 0:
             loan_amount = 0.0
 
-        india_costs = calculate_true_total_cost(
-            base_price=user_input.property_price,
-            state=user_input.state,
-            property_type=user_input.property_type.value,
-            loan_amount=loan_amount,
-            area_sqft=user_input.area_sqft if user_input.area_sqft else 1000,
+        india_costs, financial_reality = await asyncio.gather(
+            asyncio.to_thread(
+                calculate_true_total_cost,
+                base_price=user_input.property_price,
+                state=user_input.state,
+                property_type=user_input.property_type.value,
+                loan_amount=loan_amount,
+                area_sqft=user_input.area_sqft if user_input.area_sqft else 1000,
+            ),
+            asyncio.to_thread(calculate_affordability, user_input),
         )
 
-        financial_reality = calculate_affordability(user_input)
-        all_scenarios = run_all_scenarios(user_input, financial_reality)
-        risk_score = calculate_risk_score(
+        # Sequential — depends on financial_reality
+        all_scenarios = await asyncio.to_thread(
+            run_all_scenarios, user_input, financial_reality
+        )
+        risk_score = await asyncio.to_thread(
+            calculate_risk_score,
             financial_reality=financial_reality,
             all_scenarios=all_scenarios,
             age=user_input.age,
@@ -228,8 +241,10 @@ async def analyze_route(
             "risk_score": risk_score.model_dump(),
         }
 
-        # Save to Firestore
-        save_simulation_results(session_id, deterministic_results)
+        # Save to Firestore (fire-and-forget — never blocks the response)
+        asyncio.create_task(
+            asyncio.to_thread(save_simulation_results, session_id, deterministic_results)
+        )
 
         # --- Call Dev 2's orchestrator ---
         if orchestrator:
