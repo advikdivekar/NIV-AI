@@ -9,7 +9,7 @@ import logging
 import os
 from typing import Optional
 
-from groq import AsyncGroq
+from groq import AsyncGroq, RateLimitError, APITimeoutError, APIConnectionError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,8 @@ class LLMClient:
                 logger.info("Gemini configured as fallback")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=15),
-           retry=retry_if_exception_type((Exception,)), reraise=True)
+           retry=retry_if_exception_type((RateLimitError, APITimeoutError, APIConnectionError)),
+           reraise=True)
     async def _call_groq(self, system_prompt: str, user_message: str,
                          json_mode: bool = False, max_tokens: int = 3000) -> str:
         response = await self._groq.chat.completions.create(

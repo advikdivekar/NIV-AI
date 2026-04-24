@@ -24,6 +24,12 @@ class Configuration(str, Enum):
     FIVE_PLUS_BHK = "5+BHK"
 
 
+class OutputLanguage(str, Enum):
+    ENGLISH = "english"
+    HINDI = "hindi"
+    MARATHI = "marathi"
+
+
 class FinancialInput(BaseModel):
     monthly_income: float = Field(..., gt=0)
     employment_type: EmploymentType = EmploymentType.SALARIED
@@ -56,6 +62,7 @@ class PropertyInput(BaseModel):
     is_rera_registered: Optional[bool] = None
     builder_name: str = Field(default="", max_length=200)
     possession_date: str = Field(default="", max_length=50)
+    commute_distance_km: float = Field(default=0.0, ge=0)
     down_payment_available: float = Field(..., ge=0)
     loan_tenure_years: int = Field(default=20, ge=1, le=30)
     expected_interest_rate: float = Field(default=8.5, gt=0, le=20)
@@ -75,3 +82,5 @@ class PropertyInput(BaseModel):
 class AnalysisRequest(BaseModel):
     financial: FinancialInput
     property: PropertyInput
+    output_language: OutputLanguage = OutputLanguage.ENGLISH
+    behavioral_checklist_responses: Optional[dict] = None

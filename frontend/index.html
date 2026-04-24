@@ -103,6 +103,145 @@
             padding: 32px 20px;
         }
 
+        /* ── WIZARD PROGRESS ── */
+        .wizard-progress {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 28px;
+            gap: 0;
+        }
+
+        .wizard-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+        }
+
+        .wizard-step.active {
+            opacity: 1;
+        }
+
+        .wizard-step.completed {
+            opacity: 0.8;
+        }
+
+        .wizard-step-num {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--border);
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: 13px;
+            font-weight: 700;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .wizard-step.active .wizard-step-num {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .wizard-step.completed .wizard-step-num {
+            background: var(--green);
+            color: #fff;
+        }
+
+        .wizard-step-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .wizard-step.active .wizard-step-label {
+            color: var(--accent);
+        }
+
+        .wizard-step.completed .wizard-step-label {
+            color: var(--green);
+        }
+
+        .wizard-connector {
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+            min-width: 40px;
+            max-width: 80px;
+        }
+
+        .wizard-nav {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        [data-step] {
+            display: none;
+        }
+
+        [data-step].active {
+            display: block;
+        }
+
+        /* ── LANGUAGE SELECTOR ── */
+        .lang-selector {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            padding: 12px 14px;
+            background: var(--bg);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .lang-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .lang-options {
+            display: flex;
+            gap: 6px;
+        }
+
+        .lang-opt {
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .lang-opt.active {
+            border-color: var(--accent);
+            background: rgba(124, 106, 247, 0.15);
+            color: var(--accent);
+        }
+
+        .lang-note {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
         /* ── FORM CARDS ── */
         .fcard {
             background: var(--surface);
@@ -149,18 +288,24 @@
             background: var(--bg);
             border: 1px solid var(--border-bright);
             border-radius: 8px;
-            padding: 9px 12px;
+            padding: 12px 14px;
             color: var(--text);
+            /* 44px min touch target */
             font-family: var(--font-mono);
             font-size: 13px;
             outline: none;
             transition: border-color 0.15s, box-shadow 0.15s;
+            min-height: 44px;
         }
 
         .field input:focus,
         .field select:focus {
             border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(124, 106, 247, 0.1);
+        }
+
+        .field input[aria-invalid="true"] {
+            border-color: var(--red);
         }
 
         .field input::placeholder {
@@ -171,16 +316,27 @@
             background: var(--surface);
         }
 
-        .field-preview {
+        .field-helper {
+            display: block;
             font-size: 11px;
-            color: var(--accent);
+            color: var(--text-muted);
+            margin-top: 4px;
+            line-height: 1.45;
+        }
+
+        .health-indicator {
+            font-size: 13px;
+            font-weight: 600;
             font-family: var(--font-mono);
-            margin-top: 3px;
-            height: 14px;
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
         }
 
         .btn-primary {
-            width: 100%;
+            flex: 1;
             background: var(--accent);
             color: #fff;
             border: none;
@@ -192,7 +348,7 @@
             cursor: pointer;
             letter-spacing: 0.3px;
             transition: background 0.15s, transform 0.1s;
-            margin-top: 8px;
+            min-height: 44px;
         }
 
         .btn-primary:hover {
@@ -204,8 +360,13 @@
             transform: translateY(0);
         }
 
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .btn-ghost {
-            width: 100%;
+            flex: 1;
             background: transparent;
             color: var(--text-muted);
             border: 1px solid var(--border);
@@ -213,8 +374,8 @@
             padding: 11px;
             font-size: 13px;
             cursor: pointer;
-            margin-top: 8px;
             transition: border-color 0.15s, color 0.15s;
+            min-height: 44px;
         }
 
         .btn-ghost:hover {
@@ -222,7 +383,190 @@
             color: var(--accent);
         }
 
-        /* ── LOADING ── */
+        /* ── EMI PREVIEW ── */
+        .emi-preview-card {
+            background: var(--bg);
+            border: 1px solid var(--border-bright);
+            border-radius: 12px;
+            padding: 18px;
+            margin-top: 16px;
+            margin-bottom: 4px;
+            transition: border-color 0.2s;
+        }
+
+        .emi-preview-title {
+            font-family: var(--font-display);
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+
+        .emi-preview-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .emi-preview-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .emi-preview-value {
+            font-family: var(--font-mono);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .emi-comfort-bar {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .emi-comfort-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s, background 0.3s;
+            width: 0%;
+        }
+
+        .emi-comfort-label {
+            font-size: 12px;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .emi-preview-note {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ── FRICTION GATE MODAL ── */
+        .friction-gate-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 8, 16, 0.92);
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .friction-gate-modal {
+            background: var(--surface);
+            border: 1px solid var(--border-bright);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .friction-gate-title {
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .friction-gate-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+            line-height: 1.55;
+        }
+
+        .friction-question {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            display: none;
+        }
+
+        .friction-question.active {
+            display: block;
+        }
+
+        .friction-question-text {
+            font-size: 14px;
+            color: var(--text);
+            font-weight: 500;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .friction-options {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .friction-option {
+            padding: 10px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            text-align: left;
+        }
+
+        .friction-option:hover {
+            border-color: var(--accent);
+        }
+
+        .friction-option.selected {
+            border-color: var(--accent);
+            background: rgba(124, 106, 247, 0.1);
+            color: var(--text);
+        }
+
+        .friction-warning {
+            font-size: 12px;
+            color: var(--yellow);
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: var(--yellow-bg);
+            border-radius: 6px;
+            border: 1px solid var(--yellow-border);
+            display: none;
+        }
+
+        .friction-summary {
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .friction-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 24px;
+            justify-content: flex-end;
+        }
+
+        /* ── LOADING & ERROR ── */
         #loading {
             display: none;
         }
@@ -347,7 +691,6 @@
             color: var(--green);
         }
 
-        /* ── ERROR ── */
         #err {
             display: none;
             background: var(--red-bg);
@@ -359,14 +702,83 @@
             margin-bottom: 14px;
         }
 
-        /* ══════════════════════════════════════════
-   REPORT
-══════════════════════════════════════════ */
+        /* ── REPORT ── */
         #report {
             display: none;
         }
 
-        /* ── VERDICT ── */
+        /* SHARE BAR */
+        .share-bar-container {
+            background: rgba(124, 106, 247, 0.08);
+            border: 1px solid var(--accent-dim);
+            border-radius: 10px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+        }
+
+        .share-bar-inner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .share-bar-label {
+            font-size: 12px;
+            color: var(--accent);
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .share-url-input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border-bright);
+            border-radius: 6px;
+            padding: 7px 10px;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            min-width: 0;
+            outline: none;
+        }
+
+        .share-btn-copy {
+            flex-shrink: 0;
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+
+        .share-btn-copy:hover {
+            background: #6b59e6;
+        }
+
+        .share-btn-wa {
+            flex-shrink: 0;
+            background: #25D366;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+
+        .share-btn-wa:hover {
+            background: #20b858;
+        }
+
         .verdict {
             border-radius: 16px;
             padding: 28px 32px;
@@ -432,7 +844,7 @@
             font-family: var(--font-mono);
         }
 
-        /* ── CASH FLOW HERO — the most important section ── */
+        /* CASH FLOW HERO */
         .cashflow-hero {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -507,7 +919,6 @@
             color: var(--red);
         }
 
-        /* Income waterfall */
         .cf-waterfall {
             flex: 1;
             min-width: 240px;
@@ -601,7 +1012,113 @@
             color: var(--text);
         }
 
-        /* ── SCORECARD ── */
+        /* WHAT IF SLIDERS */
+        .whatif-section {
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .whatif-note {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .whatif-sliders {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .slider-label {
+            font-size: 12px;
+            color: var(--text-dim);
+            font-weight: 500;
+        }
+
+        .slider-value {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .wi-slider {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--border-bright);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        .wi-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        .whatif-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 4px;
+        }
+
+        .wm-item {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .wm-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .wm-val {
+            font-family: var(--font-mono);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .wm-delta {
+            font-size: 11px;
+            margin-top: 2px;
+            font-family: var(--font-mono);
+        }
+
+        .wm-delta.better {
+            color: var(--green);
+        }
+
+        .wm-delta.worse {
+            color: var(--red);
+        }
+
+        .wm-delta.neutral {
+            color: var(--text-muted);
+        }
+
+        /* SCORECARD */
         .scorecard {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -687,6 +1204,41 @@
             color: var(--text-muted);
         }
 
+        .sc-status-badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 3px;
+            letter-spacing: 0.8px;
+            margin: 3px 0 5px;
+            text-transform: uppercase;
+        }
+
+        .sc-status-badge.pass {
+            background: var(--green-bg);
+            color: var(--green);
+            border: 1px solid var(--green-border);
+        }
+
+        .sc-status-badge.warn {
+            background: var(--yellow-bg);
+            color: var(--yellow);
+            border: 1px solid var(--yellow-border);
+        }
+
+        .sc-status-badge.fail {
+            background: var(--red-bg);
+            color: var(--red);
+            border: 1px solid var(--red-border);
+        }
+
+        .sc-status-badge.neutral {
+            background: var(--border);
+            color: var(--text-muted);
+            border: 1px solid var(--border-bright);
+        }
+
         .sc-verdict {
             font-size: 11px;
             font-weight: 600;
@@ -715,7 +1267,7 @@
             line-height: 1.4;
         }
 
-        /* ── TWO COLUMN ── */
+        /* TWO COLUMN */
         .row2 {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -746,7 +1298,7 @@
             margin-bottom: 16px;
         }
 
-        /* ── DATA TABLE ── */
+        /* DATA TABLE */
         .dtable {
             width: 100%;
             border-collapse: collapse;
@@ -772,7 +1324,7 @@
             border-bottom: none;
         }
 
-        /* ── STRESS ── */
+        /* STRESS */
         .stress-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -844,7 +1396,7 @@
             line-height: 1.4;
         }
 
-        /* ── CHALLENGES ── */
+        /* CHALLENGES & FLAGS */
         .challenge {
             background: var(--bg);
             border-radius: 10px;
@@ -924,7 +1476,52 @@
             font-family: var(--font-mono);
         }
 
-        /* ── LISTS ── */
+        .flag {
+            font-size: 12px;
+            padding: 8px 12px;
+            background: var(--bg);
+            border-radius: 7px;
+            margin-top: 8px;
+            line-height: 1.5;
+        }
+
+        .flag.high {
+            border-left: 2px solid var(--red);
+        }
+
+        .flag.medium {
+            border-left: 2px solid var(--yellow);
+        }
+
+        .flag.low {
+            border-left: 2px solid var(--border);
+        }
+
+        .flag-name {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .flag-sev-text {
+            font-size: 9px;
+            font-weight: 700;
+            margin-right: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .flag.high .flag-sev-text {
+            color: var(--red);
+        }
+
+        .flag.medium .flag-sev-text {
+            color: var(--yellow);
+        }
+
+        .flag.low .flag-sev-text {
+            color: var(--text-muted);
+        }
+
+        /* LISTS & PILLS & REASONING */
         .reason-list,
         .action-list {
             list-style: none;
@@ -962,7 +1559,6 @@
             font-family: var(--font-display);
         }
 
-        /* ── REASONING ── */
         .reasoning {
             background: var(--bg);
             border: 1px solid var(--border);
@@ -975,7 +1571,6 @@
             font-family: var(--font-body);
         }
 
-        /* ── PILLS ── */
         .pills {
             display: flex;
             flex-wrap: wrap;
@@ -992,34 +1587,7 @@
             line-height: 1.4;
         }
 
-        /* ── PROPERTY FLAGS ── */
-        .flag {
-            font-size: 12px;
-            padding: 8px 12px;
-            background: var(--bg);
-            border-radius: 7px;
-            margin-top: 8px;
-            line-height: 1.5;
-        }
-
-        .flag.high {
-            border-left: 2px solid var(--red);
-        }
-
-        .flag.medium {
-            border-left: 2px solid var(--yellow);
-        }
-
-        .flag.low {
-            border-left: 2px solid var(--border);
-        }
-
-        .flag-name {
-            font-weight: 600;
-            color: var(--text);
-        }
-
-        /* ── RENT VS BUY VISUAL ── */
+        /* RENT VS BUY VISUAL */
         .rvb-compare {
             display: flex;
             gap: 12px;
@@ -1073,13 +1641,125 @@
             line-height: 1.55;
         }
 
-        /* ── META ── */
+        /* ACTIONS & META */
+        .report-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+            flex-wrap: wrap;
+        }
+
         .meta {
             font-size: 11px;
             color: var(--text-muted);
             text-align: center;
             padding: 16px 0 4px;
             font-family: var(--font-mono);
+        }
+
+        /* PRINT STYLES */
+        .print-header,
+        .print-disclaimer {
+            display: none;
+        }
+
+        @media print {
+
+            .hdr,
+            #form-section,
+            #loading,
+            #err,
+            #compare-bar,
+            #compare-form,
+            .share-bar-container,
+            #r-whatif,
+            .whatif-section,
+            .report-actions,
+            .btn-primary,
+            .btn-ghost,
+            .btn-whatsapp,
+            .share-btn-copy,
+            .share-btn-wa,
+            .friction-gate-overlay,
+            .lang-selector,
+            .wizard-progress,
+            .sensitivity-section {
+                display: none !important;
+            }
+
+            #report {
+                display: block !important;
+            }
+
+            body {
+                background: white !important;
+                color: #1a1a2e !important;
+                font-size: 11pt;
+                font-family: 'DM Sans', Arial, sans-serif;
+            }
+
+            .verdict {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                border: 2px solid #ccc !important;
+            }
+
+            .verdict.safe {
+                background: #d4edda !important;
+            }
+
+            .verdict.risky {
+                background: #fff3cd !important;
+            }
+
+            .verdict.reconsider {
+                background: #f8d7da !important;
+            }
+
+            .cashflow-hero,
+            .scorecard,
+            .rcard,
+            .sc-item {
+                background: white !important;
+                border: 1px solid #ddd !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .scenario-grid {
+                grid-template-columns: 1fr 1fr !important;
+            }
+
+            .row2 {
+                grid-template-columns: 1fr 1fr !important;
+            }
+
+            .rcard {
+                page-break-inside: avoid;
+                margin-bottom: 12pt !important;
+            }
+
+            .print-header,
+            .print-disclaimer {
+                display: block !important;
+            }
+
+            .v-word,
+            .sc-val {
+                color: #1a1a2e !important;
+            }
+
+            .verdict.safe .v-word {
+                color: #155724 !important;
+            }
+
+            .verdict.risky .v-word {
+                color: #856404 !important;
+            }
+
+            .verdict.reconsider .v-word {
+                color: #721c24 !important;
+            }
         }
     </style>
 </head>
@@ -1096,105 +1776,330 @@
 
     <div class="wrap">
 
-        <!-- ═══ FORM ═══ -->
         <div id="form-section">
-            <div id="err"></div>
-            <div class="fcard">
-                <div class="fcard-title">💰 Your Financial Situation</div>
-                <div class="g2">
-                    <div class="field"><label>Your Monthly Income (₹)</label><input id="f_inc" type="number"
-                            value="120000" placeholder="120000" oninput="preview(this,'inc-p')">
-                        <div id="inc-p" class="field-preview"></div>
-                    </div>
-                    <div class="field"><label>Spouse / Co-borrower Income (₹)</label><input id="f_sp" type="number"
-                            value="0" placeholder="0" oninput="preview(this,'sp-p')">
-                        <div id="sp-p" class="field-preview"></div>
-                    </div>
-                    <div class="field"><label>Employment Type</label>
-                        <select id="f_emp">
-                            <option value="salaried">Salaried</option>
-                            <option value="freelance">Freelance / Consulting</option>
-                            <option value="business">Business Owner</option>
-                        </select>
-                    </div>
-                    <div class="field"><label>Years in Current Job</label><input id="f_yrs" type="number" value="3"
-                            step="0.5"></div>
-                    <div class="field"><label>Expected Annual Income Growth (%)</label><input id="f_grow" type="number"
-                            value="8" step="0.5"></div>
-                    <div class="field"><label>Existing Loan EMIs (₹/month)</label><input id="f_emis" type="number"
-                            value="5000"></div>
-                    <div class="field"><label>Monthly Living Expenses (₹)</label><input id="f_exp" type="number"
-                            value="45000"></div>
-                    <div class="field"><label>Current Monthly Rent (₹)</label><input id="f_rent" type="number"
-                            value="25000"></div>
-                    <div class="field"><label>Liquid Savings / FD / Stocks (₹)</label><input id="f_sav" type="number"
-                            value="2000000" oninput="preview(this,'sav-p')">
-                        <div id="sav-p" class="field-preview"></div>
-                    </div>
-                    <div class="field"><label>Number of Dependents</label><input id="f_dep" type="number" value="1"
-                            min="0"></div>
+            <div id="err" role="alert"></div>
+
+            <div class="lang-selector">
+                <span class="lang-label">Report Language</span>
+                <div class="lang-options">
+                    <button class="lang-opt active" data-lang="english"
+                        onclick="setLang('english', this)">English</button>
+                    <button class="lang-opt" data-lang="hindi" onclick="setLang('hindi', this)">हिंदी</button>
+                    <button class="lang-opt" data-lang="marathi" onclick="setLang('marathi', this)">मराठी</button>
+                </div>
+                <span class="lang-note">Reasoning text only — numbers remain in English</span>
+            </div>
+
+            <div class="wizard-progress">
+                <div class="wizard-step active" id="ws1">
+                    <div class="wizard-step-num">1</div>
+                    <div class="wizard-step-label">Finances</div>
+                </div>
+                <div class="wizard-connector"></div>
+                <div class="wizard-step" id="ws2">
+                    <div class="wizard-step-num">2</div>
+                    <div class="wizard-step-label">Property</div>
+                </div>
+                <div class="wizard-connector"></div>
+                <div class="wizard-step" id="ws3">
+                    <div class="wizard-step-num">3</div>
+                    <div class="wizard-step-label">Details</div>
                 </div>
             </div>
+
             <div class="fcard">
-                <div class="fcard-title">🏠 Property You're Considering</div>
-                <div class="g2">
-                    <div class="field"><label>Property Price (₹)</label><input id="p_price" type="number"
-                            value="8500000" oninput="preview(this,'pp-p')">
-                        <div id="pp-p" class="field-preview"></div>
+                <div data-step="1" class="active">
+                    <div class="fcard-title">💰 Your Financial Picture</div>
+                    <div class="g2">
+                        <div class="field">
+                            <label for="monthly_income">Your Monthly Income (₹)</label>
+                            <input id="monthly_income" type="number" value="120000" placeholder="120000"
+                                oninput="updateFinancialHealth(); preview(this,'inc-p')">
+                            <div id="inc-p" class="field-preview"></div>
+                        </div>
+                        <div class="field">
+                            <label for="spouse_income">Spouse / Co-borrower Income (₹)</label>
+                            <input id="spouse_income" type="number" value="0" placeholder="0"
+                                oninput="updateFinancialHealth(); preview(this,'sp-p')">
+                            <div id="sp-p" class="field-preview"></div>
+                        </div>
+                        <div class="field">
+                            <label for="liquid_savings">Liquid Savings / FDs / Stocks (₹)</label>
+                            <input id="liquid_savings" type="number" value="2000000" oninput="preview(this,'sav-p')">
+                            <small class="field-helper">Include: savings accounts, FDs, liquid mutual funds, stocks.
+                                Exclude: EPF, PPF, property, long-term locked investments.</small>
+                            <div id="sav-p" class="field-preview"></div>
+                        </div>
+                        <div class="field">
+                            <label for="existing_emis">Existing Loan EMIs (₹/month)</label>
+                            <input id="existing_emis" type="number" value="5000" oninput="updateFinancialHealth()">
+                        </div>
+                        <div class="field">
+                            <label for="monthly_expenses">Monthly Living Expenses (₹)</label>
+                            <input id="monthly_expenses" type="number" value="45000" oninput="updateFinancialHealth()">
+                        </div>
                     </div>
-                    <div class="field"><label>Location / Area</label><input id="p_loc" type="text" value="Andheri West"
-                            placeholder="Andheri West"></div>
-                    <div class="field"><label>Configuration</label>
-                        <select id="p_cfg">
-                            <option value="1BHK">1 BHK</option>
-                            <option value="2BHK" selected>2 BHK</option>
-                            <option value="3BHK">3 BHK</option>
-                            <option value="4BHK">4 BHK</option>
-                        </select>
+                    <div class="health-indicator" id="financial-health"></div>
+                    <div class="wizard-nav">
+                        <button class="btn-primary" onclick="goStep(2)">Next: Property Details →</button>
                     </div>
-                    <div class="field"><label>Carpet Area (sqft)</label><input id="p_sqft" type="number" value="650">
+                </div>
+
+                <div data-step="2">
+                    <div class="fcard-title">🏠 The Property</div>
+                    <div class="g2">
+                        <div class="field">
+                            <label for="property_price">Property Price (₹)</label>
+                            <input id="property_price" type="number" value="8500000"
+                                oninput="updateEMIPreview(); preview(this,'pp-p')">
+                            <div id="pp-p" class="field-preview"></div>
+                        </div>
+                        <div class="field">
+                            <label for="location_area">Location / Area</label>
+                            <input id="location_area" type="text" value="Andheri West" placeholder="Andheri West">
+                        </div>
+                        <div class="field">
+                            <label for="down_payment_available">Down Payment You Can Pay (₹)</label>
+                            <input id="down_payment_available" type="number" value="1700000"
+                                oninput="updateEMIPreview(); preview(this,'dp-p')">
+                            <small class="field-helper">RBI mandates minimum 20% of property price. A larger down
+                                payment means lower EMI, lower interest paid, and better financial safety
+                                margin.</small>
+                            <div id="dp-p" class="field-preview"></div>
+                        </div>
+                        <div class="field">
+                            <label for="loan_tenure_years">Preferred Loan Tenure (years)</label>
+                            <input id="loan_tenure_years" type="number" value="20" min="1" max="30"
+                                oninput="updateEMIPreview()">
+                        </div>
+                        <div class="field">
+                            <label for="expected_interest_rate">Expected Interest Rate (%)</label>
+                            <input id="expected_interest_rate" type="number" value="8.5" step="0.1"
+                                oninput="updateEMIPreview()">
+                            <small class="field-helper">Current SBI home loan rates: 8.5–9.15% (April 2026). Check your
+                                specific bank's current rate.</small>
+                        </div>
                     </div>
-                    <div class="field"><label>Down Payment You Can Pay (₹)</label><input id="p_dp" type="number"
-                            value="1700000" oninput="preview(this,'dp-p')">
-                        <div id="dp-p" class="field-preview"></div>
+
+                    <div class="emi-preview-card" id="emi-preview">
+                        <div class="emi-preview-title">ESTIMATED MONTHLY IMPACT</div>
+                        <div class="emi-preview-grid">
+                            <div class="emi-preview-item">
+                                <div class="emi-preview-label">Loan Amount</div>
+                                <div class="emi-preview-value" id="prev-loan">—</div>
+                            </div>
+                            <div class="emi-preview-item">
+                                <div class="emi-preview-label">Estimated EMI</div>
+                                <div class="emi-preview-value" id="prev-emi">—</div>
+                            </div>
+                            <div class="emi-preview-item">
+                                <div class="emi-preview-label">Monthly Surplus</div>
+                                <div class="emi-preview-value" id="prev-surplus">—</div>
+                            </div>
+                            <div class="emi-preview-item">
+                                <div class="emi-preview-label">EMI / Income</div>
+                                <div class="emi-preview-value" id="prev-ratio">—</div>
+                            </div>
+                        </div>
+                        <div class="emi-comfort-bar">
+                            <div class="emi-comfort-fill" id="emi-comfort-fill"></div>
+                        </div>
+                        <div class="emi-comfort-label" id="emi-comfort-label"></div>
+                        <div class="emi-preview-note">Estimate only — full analysis includes taxes, maintenance,
+                            insurance and stress tests.</div>
                     </div>
-                    <div class="field"><label>Preferred Loan Tenure (years)</label><input id="p_ten" type="number"
-                            value="20" min="1" max="30"></div>
-                    <div class="field"><label>Expected Interest Rate (%)</label><input id="p_rate" type="number"
-                            value="8.5" step="0.1"></div>
-                    <div class="field"><label>Buyer Gender</label>
-                        <select id="p_gen">
-                            <option value="male">Male — 6% stamp duty</option>
-                            <option value="female">Female — 5% stamp duty</option>
-                        </select>
+
+                    <div class="wizard-nav">
+                        <button class="btn-ghost" onclick="goStep(1)">← Back</button>
+                        <button class="btn-primary" onclick="goStep(3)">Next: Final Details →</button>
                     </div>
-                    <div class="field"><label>Ready to Move In?</label>
-                        <select id="p_rdy">
-                            <option value="true">Yes — Ready Possession</option>
-                            <option value="false">No — Under Construction</option>
-                        </select>
+                </div>
+
+                <div data-step="3">
+                    <div class="fcard-title">📝 Additional Details</div>
+                    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">These details improve accuracy
+                        — fill what you know, skip the rest.</p>
+                    <div class="g2">
+                        <div class="field">
+                            <label for="employment_type">Employment Type</label>
+                            <select id="employment_type">
+                                <option value="salaried">Salaried</option>
+                                <option value="freelance">Freelance / Consulting</option>
+                                <option value="business">Business Owner</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="years_in_current_job">Years in Current Job</label><input
+                                id="years_in_current_job" type="number" value="3" step="0.5"></div>
+                        <div class="field"><label for="expected_annual_growth_pct">Expected Annual Income Growth
+                                (%)</label><input id="expected_annual_growth_pct" type="number" value="8" step="0.5">
+                        </div>
+                        <div class="field"><label for="current_rent">Current Monthly Rent (₹)</label><input
+                                id="current_rent" type="number" value="25000"></div>
+                        <div class="field"><label for="dependents">Number of Dependents</label><input id="dependents"
+                                type="number" value="1" min="0"></div>
+                        <div class="field"><label for="configuration">Configuration</label>
+                            <select id="configuration">
+                                <option value="1BHK">1 BHK</option>
+                                <option value="2BHK" selected>2 BHK</option>
+                                <option value="3BHK">3 BHK</option>
+                                <option value="4BHK">4 BHK</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="carpet_area_sqft">Carpet Area (sqft)</label>
+                            <input id="carpet_area_sqft" type="number" value="650">
+                            <small class="field-helper">RERA carpet area — actual usable floor space. NOT the super
+                                built-up area shown in advertisements (which is 25-40% larger).</small>
+                        </div>
+                        <div class="field"><label for="is_ready_to_move">Ready to Move In?</label>
+                            <select id="is_ready_to_move">
+                                <option value="true">Yes — Ready Possession</option>
+                                <option value="false">No — Under Construction</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="is_rera_registered">RERA Registered?</label>
+                            <select id="is_rera_registered">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                                <option value="null">Don't Know</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="builder_name">Builder / Developer Name</label><input
+                                id="builder_name" type="text" value="Oberoi Realty"></div>
+                        <div class="field"><label for="possession_date">Possession Date (MM/YYYY)</label><input
+                                id="possession_date" type="text" placeholder="e.g. 12/2026"></div>
+                        <div class="field">
+                            <label for="commute_distance_km">Commute Distance to Office (km)</label>
+                            <input id="commute_distance_km" type="number" placeholder="Optional" value="0" min="0">
+                            <small class="field-helper">Optional. One-way distance from this property to your office in
+                                km. Used to estimate annual transport cost impact.</small>
+                        </div>
+                        <div class="field"><label for="buyer_gender">Buyer Gender</label>
+                            <select id="buyer_gender">
+                                <option value="male">Male — 6% stamp duty</option>
+                                <option value="female">Female — 5% stamp duty</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="is_first_property">Is this your first property?</label>
+                            <select id="is_first_property">
+                                <option value="true">Yes</option>
+                                <option value="false">No</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="financial_notes">Financial Notes</label><input
+                                id="financial_notes" type="text" placeholder="e.g. Expecting 5L bonus in December">
+                        </div>
+                        <div class="field"><label for="property_notes">Property Notes</label><input id="property_notes"
+                                type="text" placeholder="e.g. Ground floor unit"></div>
                     </div>
-                    <div class="field"><label>RERA Registered?</label>
-                        <select id="p_rera">
-                            <option value="true">Yes</option>
-                            <option value="false">No</option>
-                            <option value="null">Don't Know</option>
-                        </select>
+                    <div class="wizard-nav">
+                        <button class="btn-ghost" onclick="goStep(2)">← Back</button>
+                        <button class="btn-primary" onclick="onSubmitClick()">Run Full AI Analysis — 6 Agents</button>
                     </div>
-                    <div class="field"><label>Builder / Developer Name</label><input id="p_bld" type="text"
-                            value="Oberoi Realty"></div>
                 </div>
             </div>
-            <button class="btn-primary" onclick="run()">🚀 Analyse This Purchase — 6 Agents</button>
+            <div style="text-align:center;margin-top:16px;">
+                <a href="#" onclick="showAllSteps(event)"
+                    style="font-size:12px;color:var(--text-muted);text-decoration:none;">Show all fields at once</a>
+            </div>
         </div>
 
-        <!-- ═══ LOADING ═══ -->
-        <div id="loading">
+        <div class="friction-gate-overlay" id="friction-gate">
+            <div class="friction-gate-modal">
+                <div class="friction-gate-title">Just a quick check before we analyze...</div>
+                <div class="friction-gate-subtitle">To give you the most accurate advice, please answer honestly based
+                    on your current feelings.</div>
+
+                <div class="friction-question active" id="fq1">
+                    <div class="friction-question-text">Are you analyzing this property because you genuinely haven't
+                        decided yet — or because you've already emotionally committed and want confirmation?</div>
+                    <div class="friction-options">
+                        <div class="friction-option" onclick="selectFriction('fq1', 'A')">I'm still genuinely undecided
+                            and evaluating</div>
+                        <div class="friction-option" onclick="selectFriction('fq1', 'B')">I like it a lot but haven't
+                            decided</div>
+                        <div class="friction-option" onclick="selectFriction('fq1', 'C')">I've already fallen in love
+                            with it and want to proceed</div>
+                    </div>
+                    <div class="friction-warning" id="fw1">Research shows 100% of buyers who have already 'fallen in
+                        love' treat a financial analysis as confirmation, not a check. Try to view this as if you were a
+                        neutral investor.</div>
+                </div>
+
+                <div class="friction-question active" id="fq2">
+                    <div class="friction-question-text">Do you have a specific, funded plan if your primary income stops
+                        completely for 3 months before you take possession?</div>
+                    <div class="friction-options">
+                        <div class="friction-option" onclick="selectFriction('fq2', 'A')">Yes — I have an emergency fund
+                            that covers it</div>
+                        <div class="friction-option" onclick="selectFriction('fq2', 'B')">I would manage somehow</div>
+                        <div class="friction-option" onclick="selectFriction('fq2', 'C')">No specific plan</div>
+                    </div>
+                    <div class="friction-warning" id="fw2">A 3-month income gap is the most common trigger for home loan
+                        default in India's salaried sector. Banks do not pause EMIs.</div>
+                </div>
+
+                <div class="friction-question" id="fq3">
+                    <div class="friction-question-text">Have you physically traveled from this property to your
+                        workplace at peak commute hours on a weekday morning?</div>
+                    <div class="friction-options">
+                        <div class="friction-option" onclick="selectFriction('fq3', 'A')">Yes — I've timed the actual
+                            commute</div>
+                        <div class="friction-option" onclick="selectFriction('fq3', 'B')">I've checked on Google Maps
+                        </div>
+                        <div class="friction-option" onclick="selectFriction('fq3', 'C')">Not yet</div>
+                    </div>
+                    <div class="friction-warning" id="fw3">Peripheral property buyers commonly underestimate commute
+                        time by 40-60%. A 90-minute commute each way destroys 750+ hours of life per year.</div>
+                </div>
+
+                <div class="friction-question active" id="fq4">
+                    <div class="friction-question-text">Do you know the current market rent for a similar flat in this
+                        exact area right now?</div>
+                    <div class="friction-options">
+                        <div class="friction-option" onclick="selectFriction('fq4', 'A')">Yes — I've checked active
+                            rental listings</div>
+                        <div class="friction-option" onclick="selectFriction('fq4', 'B')">Roughly, from general area
+                            knowledge</div>
+                        <div class="friction-option" onclick="selectFriction('fq4', 'C')">I haven't compared renting vs
+                            buying for this property</div>
+                    </div>
+                    <div class="friction-warning" id="fw4">Your rent-vs-buy analysis is only meaningful if the rent
+                        comparison is accurate. The break-even year can shift by 5+ years with wrong rental assumptions.
+                    </div>
+                </div>
+
+                <div class="friction-question" id="fq5">
+                    <div class="friction-question-text">Have you verified this builder's RERA registration and checked
+                        their on-time delivery record for previous projects?</div>
+                    <div class="friction-options">
+                        <div class="friction-option" onclick="selectFriction('fq5', 'A')">Yes — checked
+                            MahaRERA.mahaonline.gov.in</div>
+                        <div class="friction-option" onclick="selectFriction('fq5', 'B')">Checked online reviews and
+                            testimonials only</div>
+                        <div class="friction-option" onclick="selectFriction('fq5', 'C')">Not yet</div>
+                    </div>
+                    <div class="friction-warning" id="fw5">30% of Mumbai projects face delivery disputes. Builder
+                        reviews are curated. Only RERA records show actual complaint counts and completion rates.</div>
+                </div>
+
+                <div class="friction-summary" id="friction-summary"></div>
+
+                <div class="friction-actions">
+                    <button class="btn-ghost" style="width:auto;padding:12px 20px" onclick="closeFrictionGate()">Go Back
+                        and Reconsider</button>
+                    <button class="btn-primary" style="width:auto;padding:12px 24px" id="friction-proceed" disabled
+                        onclick="proceedFromFriction()">Proceed to Analysis</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" role="status" aria-live="polite" aria-label="Analysis in progress">
             <div class="fcard">
                 <div class="load-wrap">
                     <div class="spinner"></div>
                     <div class="load-title">Analysing Your Situation</div>
-                    <div class="load-sub">6 agents working in sequence — 20 to 40 seconds</div>
+                    <div class="load-sub">6 agents working in sequence — please wait</div>
                     <div class="agents">
                         <div class="arow" id="a1">
                             <div class="adot"></div>
@@ -1231,19 +2136,125 @@
             </div>
         </div>
 
-        <!-- ═══ REPORT ═══ -->
         <div id="report">
 
-            <!-- VERDICT -->
-            <div id="r-verdict"></div>
+            <div id="share-bar" style="display:none" class="share-bar-container">
+                <div class="share-bar-inner">
+                    <span class="share-bar-label">📎 Analysis saved</span>
+                    <input type="text" id="share-url-input" readonly class="share-url-input">
+                    <button class="share-btn-copy" onclick="copyShareUrl()" id="copy-btn">Copy Link</button>
+                    <button class="share-btn-wa" onclick="shareWhatsApp()" id="wa-btn">Share on WhatsApp</button>
+                </div>
+            </div>
 
-            <!-- CASH FLOW HERO — most important section -->
+            <div id="compare-bar" style="display:none;margin-bottom:16px">
+                <button class="btn-ghost" style="width:auto;padding:10px 20px" onclick="startComparison()">+ Compare
+                    with Another Property</button>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:12px">Same financial profile, different
+                    property</span>
+            </div>
+
+            <div id="compare-form" style="display:none" class="fcard">
+                <div class="fcard-title">📊 Property 2 — Enter Details</div>
+                <div class="g2">
+                    <div class="field"><label for="c_price">Property Price (₹)</label><input id="c_price" type="number"
+                            placeholder="85,00,000"></div>
+                    <div class="field"><label for="c_loc">Location / Area</label><input id="c_loc" type="text"
+                            placeholder="Powai"></div>
+                    <div class="field"><label for="c_sqft">Carpet Area (sqft)</label><input id="c_sqft" type="number"
+                            placeholder="650"></div>
+                    <div class="field"><label for="c_dp">Down Payment (₹)</label><input id="c_dp" type="number"
+                            placeholder="17,00,000"></div>
+                    <div class="field"><label for="c_rdy">Ready to Move?</label>
+                        <select id="c_rdy">
+                            <option value="true">Yes</option>
+                            <option value="false">No — Under Construction</option>
+                        </select>
+                    </div>
+                    <div class="field"><label for="c_bld">Builder Name</label><input id="c_bld" type="text"
+                            placeholder="Optional"></div>
+                </div>
+                <div style="display:flex;gap:10px;margin-top:8px">
+                    <button class="btn-primary" style="flex:1" onclick="runComparison()">Analyze Property 2</button>
+                    <button class="btn-ghost" style="flex:0 0 auto;padding:0 20px"
+                        onclick="cancelComparison()">Cancel</button>
+                </div>
+            </div>
+
+            <div id="compare-results" style="display:none" class="rcard">
+                <div class="rcard-title">📊 Side-by-Side Comparison</div>
+                <div id="compare-table-container"></div>
+                <button class="btn-ghost" style="margin-top:12px;width:auto;padding:8px 20px"
+                    onclick="clearComparison()">Clear Comparison</button>
+            </div>
+
+            <div class="print-header">
+                <h1 style="font-family:Arial;font-size:18pt;margin-bottom:4pt">Niv AI — Home Buying Analysis</h1>
+                <p id="print-meta" style="font-size:10pt;color:#666;margin-bottom:16pt"></p>
+            </div>
+
+            <div id="r-verdict"></div>
+            <div id="r-research-warnings" style="display:none;margin-bottom:16px"></div>
+
             <div class="cashflow-hero" id="r-cashflow"></div>
 
-            <!-- SCORECARD -->
+            <div class="rcard whatif-section" id="r-whatif">
+                <div class="rcard-title">🔧 What-If Explorer — Adjust & See Impact Instantly</div>
+                <div class="whatif-note">Slide to explore how changes affect your key metrics. No AI re-run needed —
+                    this uses the same financial model instantly.</div>
+                <div class="whatif-sliders">
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <span class="slider-label">Down Payment</span>
+                            <span class="slider-value" id="wi-dp-val">—</span>
+                        </div>
+                        <input type="range" class="wi-slider" id="wi-dp" min="0" max="0" step="50000">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <span class="slider-label">Property Price</span>
+                            <span class="slider-value" id="wi-price-val">—</span>
+                        </div>
+                        <input type="range" class="wi-slider" id="wi-price" min="0" max="0" step="50000">
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-header">
+                            <span class="slider-label">Loan Tenure</span>
+                            <span class="slider-value" id="wi-tenure-val">—</span>
+                        </div>
+                        <input type="range" class="wi-slider" id="wi-tenure" min="5" max="30" step="1">
+                    </div>
+                </div>
+                <div class="whatif-metrics">
+                    <div class="wm-item">
+                        <div class="wm-label">Monthly EMI</div>
+                        <div class="wm-val" id="wm-emi">—</div>
+                        <div class="wm-delta" id="wm-emi-d"></div>
+                    </div>
+                    <div class="wm-item">
+                        <div class="wm-label">EMI / Income</div>
+                        <div class="wm-val" id="wm-ratio">—</div>
+                        <div class="wm-delta" id="wm-ratio-d"></div>
+                    </div>
+                    <div class="wm-item">
+                        <div class="wm-label">Monthly Surplus</div>
+                        <div class="wm-val" id="wm-surplus">—</div>
+                        <div class="wm-delta" id="wm-surplus-d"></div>
+                    </div>
+                    <div class="wm-item">
+                        <div class="wm-label">Emergency Runway</div>
+                        <div class="wm-val" id="wm-runway">—</div>
+                        <div class="wm-delta" id="wm-runway-d"></div>
+                    </div>
+                </div>
+                <button class="btn-ghost" style="margin-top:8px;width:auto;padding:8px 20px" onclick="resetWhatIf()">↺
+                    Reset to Original</button>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:8px">For updated AI insights and a new
+                    verdict, use "Run Another Scenario" below.</div>
+            </div>
+
             <div class="scorecard" id="r-scorecard"></div>
 
-            <!-- STRESS + PROPERTY -->
             <div class="row2">
                 <div class="rcard">
                     <div class="rcard-title">⚡ What Happens If Things Go Wrong</div>
@@ -1255,19 +2266,21 @@
                 </div>
             </div>
 
-            <!-- RENT VS BUY -->
             <div class="rcard" style="margin-bottom:14px">
                 <div class="rcard-title">🔄 Renting vs Buying — The Real Cost</div>
                 <div id="r-rvb"></div>
             </div>
 
-            <!-- CHALLENGES -->
+            <div class="rcard" style="margin-bottom:14px">
+                <div class="rcard-title">💸 True Cost of Ownership</div>
+                <div id="r-tco"></div>
+            </div>
+
             <div class="rcard" style="margin-bottom:14px">
                 <div class="rcard-title">⚠️ Assumptions Being Made About You</div>
                 <div id="r-challenges"></div>
             </div>
 
-            <!-- REASONS + ACTIONS -->
             <div class="row2">
                 <div class="rcard">
                     <div class="rcard-title">📋 Why This Verdict</div>
@@ -1279,13 +2292,13 @@
                 </div>
             </div>
 
-            <!-- FULL REASONING -->
+            <div id="r-path-to-safe" style="display:none;margin-bottom:14px"></div>
+
             <div class="rcard" style="margin-bottom:14px">
                 <div class="rcard-title">💬 Full Analysis</div>
                 <div id="r-reasoning" class="reasoning"></div>
             </div>
 
-            <!-- BLIND SPOTS + EMOTIONAL FLAGS -->
             <div class="row2">
                 <div class="rcard">
                     <div class="rcard-title">🔍 What's Not Being Considered</div>
@@ -1298,299 +2311,28 @@
             </div>
 
             <div class="meta" id="r-meta"></div>
-            <button class="btn-ghost" onclick="reset()">← Run Another Scenario</button>
+
+            <div class="report-actions">
+                <button class="btn-ghost" onclick="downloadPDF()" style="width:auto;padding:10px 20px">⬇ Download
+                    PDF</button>
+                <button class="btn-ghost" onclick="downloadLinkedInCard()" style="width:auto;padding:10px 20px">💼
+                    LinkedIn Card</button>
+                <button class="btn-ghost" onclick="reset()" style="width:auto;padding:10px 20px">← New Analysis</button>
+            </div>
+
+            <div class="print-disclaimer">
+                Generated by Niv AI on <span id="print-date"></span>.
+                This analysis is for informational purposes only. Not financial advice.
+                Verify all data independently. Consult a SEBI-registered financial advisor
+                before making any property purchase decision.
+                <br>Data sources: Mumbai benchmark data Q4 2025 · Indian income tax rules ·
+                Maharashtra stamp duty rates · RBI home loan guidelines.
+            </div>
         </div>
 
     </div>
 
-    <script>
-        const API = '';
-        function esc(s) { const d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
-        function inr(n) { if (n == null) return '—'; return '₹' + Math.round(n).toLocaleString('en-IN'); }
-        function pct(n) { return (n * 100).toFixed(1) + '%'; }
-        function preview(el, previewId) {
-            const v = +el.value;
-            const p = document.getElementById(previewId);
-            if (!p) return;
-            p.textContent = v > 0 ? '= ' + inr(v) : '';
-        }
-
-        /* Agent animation */
-        let _t = null;
-        function setA(id, st) {
-            const el = document.getElementById(id);
-            el.className = 'arow ' + st;
-            el.querySelector('.astatus').textContent = st === 'running' ? 'running…' : st === 'done' ? '✓ done' : 'waiting';
-        }
-        function startA() {
-            const ids = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; let i = 0;
-            function t() { if (i > 0) setA(ids[i - 1], 'done'); if (i < ids.length) { setA(ids[i], 'running'); i++; _t = setTimeout(t, 5500); } }
-            t();
-        }
-        function stopA() { clearTimeout(_t);['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(id => setA(id, 'done')); }
-
-        async function run() {
-            document.getElementById('err').style.display = 'none';
-            const inc = +document.getElementById('f_inc').value;
-            const price = +document.getElementById('p_price').value;
-            const dp = +document.getElementById('p_dp').value;
-            if (!inc || inc <= 0) return showErr('Monthly income is required');
-            if (!price || price <= 100000) return showErr('Property price must be above ₹1,00,000');
-            if (dp >= price) return showErr('Down payment must be less than property price');
-            const r = document.getElementById('p_rera').value;
-            const body = {
-                financial: {
-                    monthly_income: inc, spouse_income: +document.getElementById('f_sp').value || 0,
-                    employment_type: document.getElementById('f_emp').value,
-                    years_in_current_job: +document.getElementById('f_yrs').value || 2,
-                    expected_annual_growth_pct: +document.getElementById('f_grow').value || 8,
-                    existing_emis: +document.getElementById('f_emis').value || 0,
-                    monthly_expenses: +document.getElementById('f_exp').value || 0,
-                    current_rent: +document.getElementById('f_rent').value || 0,
-                    liquid_savings: +document.getElementById('f_sav').value || 0,
-                    dependents: +document.getElementById('f_dep').value || 0,
-                    financial_notes: ''
-                },
-                property: {
-                    property_price: price, location_area: document.getElementById('p_loc').value || 'Andheri West',
-                    location_city: 'Mumbai', configuration: document.getElementById('p_cfg').value,
-                    carpet_area_sqft: +document.getElementById('p_sqft').value || 650,
-                    is_ready_to_move: document.getElementById('p_rdy').value === 'true',
-                    is_rera_registered: r === 'null' ? null : r === 'true',
-                    builder_name: document.getElementById('p_bld').value || '',
-                    possession_date: '', down_payment_available: dp,
-                    loan_tenure_years: +document.getElementById('p_ten').value || 20,
-                    expected_interest_rate: +document.getElementById('p_rate').value || 8.5,
-                    buyer_gender: document.getElementById('p_gen').value,
-                    is_first_property: true, property_notes: ''
-                }
-            };
-            document.getElementById('form-section').style.display = 'none';
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('report').style.display = 'none';
-            startA();
-            try {
-                const res = await fetch(`${API}/api/v1/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-                if (!res.ok) { const e = await res.json().catch(() => { }); throw new Error(e?.detail || `HTTP ${res.status}`); }
-                const data = await res.json();
-                stopA();
-                document.getElementById('loading').style.display = 'none';
-                render(data);
-                document.getElementById('report').style.display = 'block';
-                window.scrollTo(0, 0);
-            } catch (e) {
-                stopA();
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('form-section').style.display = 'block';
-                showErr('Analysis failed: ' + e.message);
-            }
-        }
-
-        function showErr(m) { const el = document.getElementById('err'); el.style.display = 'block'; el.textContent = '⚠ ' + m; }
-
-        function render(r) {
-            const c = r.computed_numbers || {};
-            const v = (r.verdict || 'risky').toLowerCase();
-            const fin_summary = r.financial_summary || {};
-
-            /* ── VERDICT ── */
-            const icons = { safe: '✅', risky: '⚠️', reconsider: '🚫' };
-            document.getElementById('r-verdict').innerHTML = `
-    <div class="verdict ${v}">
-      <div class="v-icon">${icons[v] || '⚠️'}</div>
-      <div>
-        <div class="v-word">${esc(v)}</div>
-        <div class="v-reason">${esc(r.verdict_reason || '')}</div>
-        <div class="v-conf">Confidence: ${r.confidence_score || '?'}/10</div>
-      </div>
-    </div>`;
-
-            /* ── CASH FLOW HERO ── */
-            // Pull from form inputs via stored payload — re-read values
-            const userIncome = +document.getElementById('f_inc').value || 0;
-            const spouseInc = +document.getElementById('f_sp').value || 0;
-            const existEMIs = +document.getElementById('f_emis').value || 0;
-            const expenses = +document.getElementById('f_exp').value || 0;
-            const household = userIncome + spouseInc;
-            const emi = c.monthly_emi || 0;
-            const ownership = c.monthly_ownership_cost || 0;
-            const totalOut = ownership + existEMIs + expenses;
-            const surplus = household - totalOut;
-            const surplusCls = surplus > 20000 ? 'good' : surplus > 5000 ? 'warn' : 'crit';
-            const surplusMsg = surplus > 20000
-                ? `After paying everything — EMI, maintenance, expenses, existing loans — you have ${inr(surplus)} left each month. That's a healthy buffer.`
-                : surplus > 5000
-                    ? `After all obligations you're left with just ${inr(surplus)}/month. One unexpected expense could strain your cash flow.`
-                    : surplus > 0
-                        ? `You're left with only ${inr(surplus)}/month after all obligations. This is critically thin — any income drop or unexpected cost puts you at risk of default.`
-                        : `Your outgoings (${inr(totalOut)}) EXCEED your income (${inr(household)}). This purchase is not financially viable as-is.`;
-
-            const maxFlow = household;
-            const barPct = (n) => Math.min(Math.max((n / maxFlow) * 100, 2), 100).toFixed(1);
-
-            document.getElementById('r-cashflow').innerHTML = `
-    <div class="cf-title">💸 Your Monthly Cash Flow After This Purchase</div>
-    <div class="cf-main">
-      <div class="cf-surplus-box">
-        <div class="cf-surplus-label">Monthly Surplus</div>
-        <div class="cf-surplus-value ${surplusCls}">${surplus >= 0 ? inr(surplus) : '−' + inr(Math.abs(surplus))}</div>
-        <div class="cf-surplus-sub ${surplusCls}">${surplus > 20000 ? '✓ Healthy buffer' : surplus > 5000 ? '⚠ Thin — be careful' : '✗ Critical — very risky'}</div>
-      </div>
-      <div class="cf-waterfall">
-        <div class="cf-row">
-          <span class="cf-row-label">Total Household Income</span>
-          <span class="cf-row-amount income">+${inr(household)}</span>
-          <div class="cf-bar-wrap"><div class="cf-bar income" style="width:100%"></div></div>
-        </div>
-        <div class="cf-row">
-          <span class="cf-row-label">New Home EMI</span>
-          <span class="cf-row-amount out">−${inr(emi)}</span>
-          <div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(emi)}%"></div></div>
-        </div>
-        <div class="cf-row">
-          <span class="cf-row-label">Maintenance + Insurance</span>
-          <span class="cf-row-amount out">−${inr(ownership - emi)}</span>
-          <div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(ownership - emi)}%"></div></div>
-        </div>
-        ${existEMIs > 0 ? `<div class="cf-row">
-          <span class="cf-row-label">Existing Loan EMIs</span>
-          <span class="cf-row-amount out">−${inr(existEMIs)}</span>
-          <div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(existEMIs)}%"></div></div>
-        </div>`: ''}
-        <div class="cf-row">
-          <span class="cf-row-label">Living Expenses</span>
-          <span class="cf-row-amount out">−${inr(expenses)}</span>
-          <div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(expenses)}%"></div></div>
-        </div>
-        <div class="cf-divider"></div>
-        <div class="cf-row">
-          <span class="cf-row-label"><strong>Left Over Each Month</strong></span>
-          <span class="cf-row-amount surplus ${surplusCls}">${surplus >= 0 ? '+' + inr(surplus) : '−' + inr(Math.abs(surplus))}</span>
-          <div class="cf-bar-wrap"><div class="cf-bar surplus ${surplusCls}" style="width:${surplus > 0 ? barPct(Math.abs(surplus)) : 100}%"></div></div>
-        </div>
-      </div>
-    </div>
-    <div class="cf-context">${surplusMsg}</div>`;
-
-            /* ── SCORECARD ── */
-            const emiR = c.emi_to_income_ratio || 0;
-            const runway = c.emergency_runway_months || 0;
-            const dpR = c.down_payment_to_savings_ratio || 0;
-            const spass = (r.stress_scenarios || []).filter(s => s.can_survive).length;
-            const stot = (r.stress_scenarios || []).length;
-            const crits = (r.assumptions_challenged || []).filter(a => ['critical', 'high'].includes(a.severity)).length;
-            const pv = r.property_assessment?.price_assessment?.verdict || '';
-            const beY = c.rent_vs_buy_break_even_years || 0;
-
-            const sc = (state, label, val, verdict, ctx) => `
-    <div class="sc-item ${state}">
-      <div class="sc-label">${label}</div>
-      <div class="sc-val">${val}</div>
-      <div class="sc-verdict">${verdict}</div>
-      <div class="sc-ctx">${ctx}</div>
-    </div>`;
-
-            const emiSt = emiR < .30 ? 'pass' : emiR < .45 ? 'warn' : 'fail';
-            const runSt = runway >= 6 ? 'pass' : runway >= 3 ? 'warn' : 'fail';
-            const dpSt = dpR < .60 ? 'pass' : dpR < .80 ? 'warn' : 'fail';
-            const ssSt = spass >= 3 ? 'pass' : spass >= 2 ? 'warn' : 'fail';
-            // Risk flags: on SAFE verdict, show as neutral (adversarial agent always finds issues)
-            // On RISKY/RECONSIDER, show as genuine red flags
-            const asSt = v === 'safe' ? (crits === 0 ? 'pass' : 'neutral') : (crits === 0 ? 'pass' : crits <= 1 ? 'warn' : 'fail');
-            const assVerdict = v === 'safe'
-                ? (crits === 0 ? '✓ No issues raised' : `ℹ ${crits} hypothetical risks noted`)
-                : (crits === 0 ? '✓ No critical risks' : crits <= 1 ? `⚠ ${crits} risk found` : `✗ ${crits} risks found`);
-            const pvM = { good_value: 'pass', fair: 'pass', slightly_overpriced: 'warn', overpriced: 'fail', no_benchmark: 'neutral' };
-            const pvL = { good_value: '✓ Good Value', fair: '✓ Fair', slightly_overpriced: '⚠ Slightly High', overpriced: '✗ Overpriced', no_benchmark: '— No Data' };
-
-            document.getElementById('r-scorecard').innerHTML =
-                sc(emiSt, 'EMI / Income', pct(emiR),
-                    emiR < .30 ? '✓ Healthy — under 30%' : emiR < .45 ? '⚠ Stretched — 30–45%' : '✗ Too High — above 45%',
-                    `Your EMI is ${inr(emi)}/mo out of ${inr(household)} income`) +
-                sc(runSt, 'Emergency Runway', runway.toFixed(1) + ' mo',
-                    runway >= 6 ? `✓ ${runway.toFixed(1)} months of cover` : runway >= 3 ? `⚠ Only ${runway.toFixed(1)} months` : `✗ Only ${runway.toFixed(1)} months — critical`,
-                    `Post-purchase savings: ${inr(c.post_purchase_savings)}`) +
-                sc(dpSt, 'Down Payment Used', pct(dpR),
-                    dpR < .60 ? '✓ Comfortable — under 60%' : dpR < .80 ? '⚠ Using 60–80% of savings' : '✗ Over 80% of savings',
-                    `${inr(+document.getElementById('p_dp').value)} of ${inr(+document.getElementById('f_sav').value)} savings`) +
-                sc(ssSt, 'Stress Tests', `${spass} / ${stot}`,
-                    spass >= 3 ? `✓ Passes ${spass} of ${stot} scenarios` : spass >= 2 ? `⚠ Passes ${spass} of ${stot} scenarios` : `✗ Passes only ${spass} of ${stot}`,
-                    'Job loss, rate hike, expense shock, stagnation') +
-                sc(asSt, 'Future Risk Flags', crits.toString(), assVerdict,
-                    v === 'safe' ? 'Hypothetical future risks only' : 'Critical and high-severity risks') +
-                sc(pvM[pv] || 'neutral', 'Price vs Market', inr(r.property_assessment?.price_assessment?.price_per_sqft) + '/sqft',
-                    pvL[pv] || '— No Benchmark',
-                    `Area median: ${inr(r.property_assessment?.price_assessment?.area_median_per_sqft)}/sqft`);
-
-            /* ── STRESS ── */
-            document.getElementById('r-stress').innerHTML = (r.stress_scenarios || []).map(s => {
-                const cls = s.can_survive ? 'pass' : 'fail';
-                return `<div class="sc2 ${cls}">
-      <div class="sc2-head"><span class="sc2-name">${esc((s.name || '').replace(/_/g, ' '))}</span><span class="badge ${cls}">${s.can_survive ? 'SURVIVES' : 'AT RISK'}</span></div>
-      <div class="sc2-key">${esc(s.key_number || '')}</div>
-      ${s.mitigation ? `<div class="sc2-tip">${esc(s.mitigation)}</div>` : ''}
-    </div>`;
-            }).join('');
-
-            /* ── PROPERTY ── */
-            const pa = r.property_assessment || {};
-            const pasm = pa.price_assessment || {};
-            const prem = pasm.premium_over_market_pct || 0;
-            const prc = (prem > 25 ? 'var(--red)' : prem > 10 ? 'var(--yellow)' : 'var(--green)');
-            document.getElementById('r-property').innerHTML = `
-    <table class="dtable" style="margin-bottom:12px">
-      <tr><td>Your price/sqft</td><td>${inr(pasm.price_per_sqft)}</td></tr>
-      <tr><td>Area median/sqft</td><td>${inr(pasm.area_median_per_sqft)}</td></tr>
-      <tr><td>vs Market</td><td style="color:${prc}">${prem > 0 ? '+' : ''}${(prem || 0).toFixed(1)}%</td></tr>
-      <tr><td>Verdict</td><td>${esc(pasm.verdict || '—')}</td></tr>
-    </table>
-    ${(pa.property_flags || []).map(f => `<div class="flag ${f.severity || 'low'}"><span class="flag-name">${esc(f.flag)}</span> — ${esc(f.detail)}</div>`).join('')}
-    ${pa.location_analysis ? `<div style="font-size:12px;color:var(--text-muted);margin-top:12px;line-height:1.55">${esc(pa.location_analysis)}</div>` : ''}`;
-
-            /* ── RENT VS BUY ── */
-            const rvb = r.rent_vs_buy || {};
-            const beClr = beY < 10 ? 'var(--green)' : beY < 20 ? 'var(--yellow)' : 'var(--red)';
-            const beMsg = beY < 10 ? `✓ You break even in ${beY.toFixed(1)} years. Buying makes financial sense long-term.`
-                : beY < 20 ? `⚠ Break-even at ${beY.toFixed(1)} years. You need to stay in this home for a long time for buying to beat renting.`
-                    : `✗ Break-even is ${beY.toFixed(1)} years away. Financially, renting and investing the down payment would likely serve you better.`;
-            const extraMo = Math.round((rvb.buying_monthly_cost || 0) - (rvb.equivalent_monthly_rent || 0));
-            document.getElementById('r-rvb').innerHTML = `
-    <div class="rvb-compare">
-      <div class="rvb-box rent"><div class="rvb-box-label">If You Rent</div><div class="rvb-box-val">${inr(rvb.equivalent_monthly_rent)}</div><div class="rvb-box-sub">per month</div></div>
-      <div class="rvb-box buy"><div class="rvb-box-label">If You Buy</div><div class="rvb-box-val">${inr(rvb.buying_monthly_cost)}</div><div class="rvb-box-sub">per month (EMI + maintenance)</div></div>
-    </div>
-    <div class="rvb-diff">
-      Buying costs you <strong style="color:var(--yellow)">${inr(extraMo)} more per month</strong> than renting an equivalent flat.
-      That's <strong>${inr(extraMo * 12)}/year</strong> extra. ${beMsg}
-    </div>`;
-
-            /* ── CHALLENGES ── */
-            document.getElementById('r-challenges').innerHTML = (r.assumptions_challenged || []).map(ch => `
-    <div class="challenge ${esc(ch.severity || 'medium')}">
-      <div class="ch-top"><span class="sev ${esc(ch.severity || 'medium')}">${esc(ch.severity || 'medium')}</span><span class="ch-assume">${esc(ch.assumption || '')}</span></div>
-      <div class="ch-body">${esc(ch.challenge || '')}</div>
-      <div class="ch-impact">Potential impact: ${esc(ch.impact || '')}</div>
-    </div>`).join('') || '<div style="font-size:13px;color:var(--text-muted)">No major assumptions challenged</div>';
-
-            /* ── REASONS + ACTIONS ── */
-            document.getElementById('r-reasons').innerHTML = (r.top_reasons || []).map(t => `<li>${esc(t)}</li>`).join('');
-            document.getElementById('r-actions').innerHTML = (r.recommended_actions || []).map(a => `<li>${esc(a)}</li>`).join('');
-            document.getElementById('r-reasoning').textContent = r.full_reasoning || 'No reasoning provided.';
-
-            /* ── BLIND + EMO ── */
-            document.getElementById('r-blind').innerHTML = (r.blind_spots || []).map(b => `<div class="pill">${esc(b)}</div>`).join('') || '<span style="font-size:12px;color:var(--text-muted)">None identified</span>';
-            document.getElementById('r-emo').innerHTML = (r.emotional_flags || []).map(f => `<div class="pill" style="border-color:var(--accent-dim);color:#a89cf7">${esc(f)}</div>`).join('') || '<span style="font-size:12px;color:var(--text-muted)">None identified</span>';
-
-            document.getElementById('r-meta').textContent = `Analysis in ${r._meta?.pipeline_time_seconds || '?'}s · ${(r.data_sources || []).join(' · ')}`;
-        }
-
-        function reset() {
-            document.getElementById('report').style.display = 'none';
-            document.getElementById('form-section').style.display = 'block';
-            ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(id => { const el = document.getElementById(id); el.className = 'arow'; el.querySelector('.astatus').textContent = 'waiting'; });
-            window.scrollTo(0, 0);
-        }
-    </script>
+    <script src="app.js"></script>
 </body>
 
 </html>

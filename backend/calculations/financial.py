@@ -88,6 +88,13 @@ class ComputedNumbers:
     rent_vs_buy: RentVsBuyResult
     post_purchase_savings: float
     loan_amount: float
+    down_payment: float = field(default=0.0)
+    interiors_estimated_cost: float = field(default=0.0)
+    true_total_acquisition_cost: float = field(default=0.0)
+    down_payment_opportunity_cost_10yr: float = field(default=0.0)
+    annual_commute_cost_estimate: float = field(default=0.0)
+    maintenance_5yr_projected_cost: float = field(default=0.0)
+    true_monthly_cost_after_all_factors: float = field(default=0.0)
 
     def to_dict(self) -> dict:
         return {
@@ -112,6 +119,13 @@ class ComputedNumbers:
             ),
             "rent_vs_buy_premium_pct": self.rent_vs_buy.premium_pct,
             "rent_vs_buy_break_even_years": self.rent_vs_buy.break_even_years,
+            "interiors_estimated_cost": self.interiors_estimated_cost,
+            "true_total_acquisition_cost": self.true_total_acquisition_cost,
+            "down_payment_opportunity_cost_10yr": self.down_payment_opportunity_cost_10yr,
+            "annual_commute_cost_estimate": self.annual_commute_cost_estimate,
+            "maintenance_5yr_projected_cost": self.maintenance_5yr_projected_cost,
+            "true_monthly_cost_after_all_factors": self.true_monthly_cost_after_all_factors,
+            "down_payment": self.down_payment,
         }
 
 
@@ -272,7 +286,31 @@ def compute_all(monthly_income: float, spouse_income: float, existing_emis: floa
                 property_price: float, down_payment: float, loan_tenure_years: int,
                 interest_rate: float, carpet_area_sqft: float, buyer_gender: str,
                 is_ready_to_move: bool, maintenance_per_sqft: float = 5.5,
-                equivalent_rent: float = 0.0) -> ComputedNumbers:
+                equivalent_rent: float = 0.0, commute_distance_km: float = 0.0) -> ComputedNumbers:
+    """
+    Master financial computation function. Runs all deterministic calculations for a home-buying decision.
+
+    Args:
+        monthly_income: Primary earner's gross monthly income in INR.
+        spouse_income: Co-borrower/spouse gross monthly income in INR.
+        existing_emis: Sum of all existing monthly loan obligations in INR.
+        monthly_expenses: Monthly household living expenses in INR.
+        liquid_savings: Total liquid savings available (cash, FD, liquid mutual funds) in INR.
+        dependents: Number of financial dependents.
+        property_price: Total property price in INR.
+        down_payment: Amount available as down payment in INR.
+        loan_tenure_years: Desired loan repayment tenure in years.
+        interest_rate: Expected annual interest rate as a percentage.
+        carpet_area_sqft: Property carpet area in square feet.
+        buyer_gender: "male" or "female" — affects stamp duty rate.
+        is_ready_to_move: True for ready-to-move, False for under-construction (affects GST).
+        maintenance_per_sqft: Monthly maintenance charge per sqft. Defaults to 5.5.
+        equivalent_rent: Market rent for a comparable property. Defaults to 2.5% yield estimate.
+        commute_distance_km: One-way commute distance to office in km. Defaults to 0 (not provided).
+
+    Returns:
+        ComputedNumbers dataclass containing all computed financial metrics.
+    """
     loan_amount = max(property_price - down_payment, 0)
     tenure_months = loan_tenure_years * 12
     emi = calculate_emi(loan_amount, interest_rate, tenure_months)
@@ -295,6 +333,139 @@ def compute_all(monthly_income: float, spouse_income: float, existing_emis: floa
         equivalent_rent = round(property_price * 0.025 / 12, 2)
     rvb = calculate_rent_vs_buy(equivalent_monthly_rent=equivalent_rent, total_monthly_ownership=monthly_own.total,
                                 down_payment=down_payment)
-    return ComputedNumbers(emi=emi, acquisition=acquisition, monthly_ownership=monthly_own, ratios=ratios,
-                           tax_benefits=tax, stress_scenarios=stress, rent_vs_buy=rvb,
-                           post_purchase_savings=post_purchase_savings, loan_amount=loan_amount)
+
+    # Hidden costs (Task 1.6)
+    interiors = round(property_price * 0.12, 2)
+    true_acquisition = round(acquisition.total + interiors, 2)
+    dp_opportunity_10yr = round(down_payment * ((1.12 ** 10) - 1), 2)
+    commute_annual = round(commute_distance_km * 2 * 8 * 250, 2) if commute_distance_km > 0 else 0.0
+    maintenance_5yr = round(sum(monthly_own.maintenance * 12 * (1.15 ** yr) for yr in range(1, 6)), 2)
+    true_monthly = round(
+        monthly_own.total
+        + (commute_annual / 12)
+        + (maintenance_5yr / 60)
+        - tax.effective_monthly_saving,
+        2,
+    )
+
+    return ComputedNumbers(
+        emi=emi, acquisition=acquisition, monthly_ownership=monthly_own, ratios=ratios,
+        tax_benefits=tax, stress_scenarios=stress, rent_vs_buy=rvb,
+        post_purchase_savings=post_purchase_savings, loan_amount=loan_amount,
+        down_payment=down_payment,
+        interiors_estimated_cost=interiors,
+        true_total_acquisition_cost=true_acquisition,
+        down_payment_opportunity_cost_10yr=dp_opportunity_10yr,
+        annual_commute_cost_estimate=commute_annual,
+        maintenance_5yr_projected_cost=maintenance_5yr,
+        true_monthly_cost_after_all_factors=true_monthly,
+    )
+
+
+def find_path_to_safe(base_params: dict, current_verdict: str, max_search_steps: int = 40) -> dict | None:
+    """
+    Determines the minimum financial changes required to achieve a SAFE verdict.
+
+    Uses linear search over down_payment increments and property_price decrements
+    to find the smallest change that satisfies all three SAFE criteria:
+      - EMI-to-income ratio < 30%
+      - Emergency runway >= 6 months
+      - Stress scenarios: 3 or more pass
+
+    Args:
+        base_params: Dict of all parameters needed for compute_all(). Expected keys match
+            compute_all() signature: monthly_income, spouse_income, existing_emis,
+            monthly_expenses, liquid_savings, dependents, property_price, down_payment,
+            loan_tenure_years, interest_rate, carpet_area_sqft, buyer_gender,
+            is_ready_to_move, maintenance_per_sqft, equivalent_rent, commute_distance_km.
+        current_verdict: Current verdict string ("risky" or "reconsider"). If "safe", returns None.
+        max_search_steps: Maximum iteration steps for each search dimension. Defaults to 40.
+
+    Returns:
+        Dict with keys:
+            additional_down_payment_needed: float (rupees, 0 if price reduction is better)
+            max_viable_property_price: float (rupees)
+            months_to_save_at_current_rate: float
+            monthly_savings_rate: float
+        Returns None if current_verdict is "safe" or no solution found within search bounds.
+    """
+    if current_verdict == "safe":
+        return None
+
+    def _is_safe(computed: "ComputedNumbers") -> bool:
+        stress_passed = sum(1 for s in computed.stress_scenarios if s.can_survive)
+        return (
+            computed.ratios.emi_to_income < 0.30
+            and computed.ratios.emergency_runway_months >= 6
+            and stress_passed >= 3
+        )
+
+    def _run(overrides: dict) -> "ComputedNumbers":
+        params = {**base_params, **overrides}
+        return compute_all(
+            monthly_income=params["monthly_income"],
+            spouse_income=params.get("spouse_income", 0),
+            existing_emis=params.get("existing_emis", 0),
+            monthly_expenses=params.get("monthly_expenses", 0),
+            liquid_savings=params.get("liquid_savings", 0),
+            dependents=params.get("dependents", 0),
+            property_price=params["property_price"],
+            down_payment=params["down_payment"],
+            loan_tenure_years=params.get("loan_tenure_years", 20),
+            interest_rate=params.get("interest_rate", 8.5),
+            carpet_area_sqft=params.get("carpet_area_sqft", 1000),
+            buyer_gender=params.get("buyer_gender", "male"),
+            is_ready_to_move=params.get("is_ready_to_move", True),
+            maintenance_per_sqft=params.get("maintenance_per_sqft", 5.5),
+            equivalent_rent=params.get("equivalent_rent", 0.0),
+            commute_distance_km=params.get("commute_distance_km", 0.0),
+        )
+
+    step = 50_000  # ₹50,000 increments
+    base_dp = base_params["down_payment"]
+    base_price = base_params["property_price"]
+
+    # Search 1: Additional down payment (up to ₹50L)
+    additional_dp = 0.0
+    for i in range(1, max_search_steps + 1):
+        extra = step * i
+        if extra > 5_000_000:  # cap at ₹50L
+            break
+        result = _run({"down_payment": base_dp + extra})
+        if _is_safe(result):
+            additional_dp = extra
+            break
+
+    # Search 2: Property price reduction (down to 20% below current)
+    min_price = base_price * 0.80
+    price_reduction = 0.0
+    for i in range(1, max_search_steps + 1):
+        reduction = step * i
+        new_price = base_price - reduction
+        if new_price < min_price:
+            break
+        result = _run({"property_price": new_price})
+        if _is_safe(result):
+            price_reduction = reduction
+            break
+
+    if additional_dp == 0.0 and price_reduction == 0.0:
+        return None
+
+    max_viable_price = base_price - price_reduction if price_reduction > 0 else base_price
+
+    # Estimate monthly savings rate from current income minus obligations
+    monthly_income = base_params["monthly_income"]
+    spouse_income = base_params.get("spouse_income", 0.0)
+    existing_emis = base_params.get("existing_emis", 0.0)
+    monthly_expenses = base_params.get("monthly_expenses", 0.0)
+    current_emi = _run({}).emi.monthly_emi
+    monthly_savings_rate = max(monthly_income + spouse_income - existing_emis - monthly_expenses - current_emi, 1.0)
+    months_to_save = round(additional_dp / monthly_savings_rate, 1) if additional_dp > 0 else 0.0
+
+    return {
+        "additional_down_payment_needed": additional_dp,
+        "max_viable_property_price": max_viable_price,
+        "months_to_save_at_current_rate": months_to_save,
+        "monthly_savings_rate": round(monthly_savings_rate, 2),
+    }

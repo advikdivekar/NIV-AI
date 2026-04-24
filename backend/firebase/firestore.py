@@ -79,3 +79,64 @@ async def list_reports(user_id: str, limit: int = 20) -> list:
     except Exception as e:
         logger.error("List reports failed: %s", e)
         return []
+
+
+async def save_outcome(
+    report_id: str,
+    outcome: str,
+    original_verdict: str,
+    days_since_analysis: int,
+    follow_up_rating: int | None = None,
+) -> bool:
+    """
+    Records the buyer's actual property decision for a saved report.
+
+    Stored anonymously in the 'outcomes' collection. Builds the proprietary
+    dataset used to calibrate verdict accuracy over time.
+
+    Args:
+        report_id: The Firestore report document ID.
+        outcome: One of 'bought', 'walked_away', 'still_deciding'.
+        original_verdict: The verdict given at analysis time.
+        days_since_analysis: Approximate days between analysis and outcome.
+        follow_up_rating: Optional 1–5 satisfaction rating for 'bought' outcomes.
+
+    Returns:
+        True if saved successfully, False otherwise.
+    """
+    _init()
+    if _db is None:
+        return False
+    try:
+        doc = {
+            "report_id": report_id,
+            "outcome": outcome,
+            "original_verdict": original_verdict,
+            "days_since_analysis": days_since_analysis,
+            "follow_up_rating": follow_up_rating,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        _db.collection("outcomes").document().set(doc)
+        return True
+    except Exception as e:
+        logger.error("Save outcome failed: %s", e)
+        return False
+
+
+async def get_report_age_days(report_id: str) -> int | None:
+    """Returns the age of a saved report in days, or None if not found."""
+    _init()
+    if _db is None:
+        return None
+    try:
+        doc = _db.collection("reports").document(report_id).get()
+        if not doc.exists:
+            return None
+        created_at_str = doc.to_dict().get("created_at")
+        if not created_at_str:
+            return None
+        created_at = datetime.fromisoformat(created_at_str)
+        return (datetime.now(timezone.utc) - created_at).days
+    except Exception as e:
+        logger.error("Get report age failed: %s", e)
+        return None

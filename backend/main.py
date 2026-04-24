@@ -1,21 +1,48 @@
 """Niv AI — FastAPI entry point."""
 from __future__ import annotations
-import logging, os
+import json
+import logging
+import os
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from backend.routers.analysis import router as analysis_router
 from backend.routers.reports import router as reports_router
 from backend.routers.health import router as health_router
+from backend.utils.rate_limit import limiter
+from backend.firebase import firestore as fs
 
 load_dotenv()
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper(),
                     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s")
 logger = logging.getLogger("niv-ai")
 
-app = FastAPI(title="Niv AI", description="Decision Intelligence for Home Buying", version="1.0.0")
+app = FastAPI(title="Niv AI", description="Decision Intelligence for Home Buying", version="3.0.0")
+
+# Rate limiting
+app.state.limiter = limiter
+
+
+async def _custom_rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    retry_after = int(getattr(exc, "retry_after", 60) or 60)
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": (
+                "Rate limit exceeded. Maximum 5 analyses per 10 minutes per IP. "
+                "Please wait before trying again."
+            ),
+            "retry_after_seconds": retry_after,
+        },
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _custom_rate_limit_handler)
 
 frontend_url = os.getenv("FRONTEND_URL", "*")
 app.add_middleware(CORSMiddleware,
@@ -27,15 +54,49 @@ app.include_router(reports_router)
 app.include_router(health_router)
 
 frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
+_index_html_path = os.path.join(frontend_dir, "index.html")
+
 if os.path.isdir(frontend_dir):
     app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
 
     @app.get("/", include_in_schema=False)
     async def serve_frontend():
-        return FileResponse(os.path.join(frontend_dir, "index.html"))
+        return FileResponse(_index_html_path)
+
+    @app.get("/app.js", include_in_schema=False)
+    async def serve_app_js():
+        """Serve app.js at root path (browser requests it relative to index.html)."""
+        return FileResponse(os.path.join(frontend_dir, "app.js"), media_type="application/javascript")
+
+    @app.get("/report/{report_id}", include_in_schema=False)
+    async def serve_shared_report(report_id: str):
+        """Serve a saved report by embedding the report data into the index.html page."""
+        report = await fs.get_report(report_id)
+        if not report:
+            return JSONResponse(status_code=404, content={"detail": "Report not found"})
+
+        try:
+            with open(_index_html_path, "r", encoding="utf-8") as f:
+                html = f.read()
+        except OSError:
+            return JSONResponse(status_code=500, content={"detail": "Frontend unavailable"})
+
+        report_json = json.dumps(report.get("report", report), ensure_ascii=False)
+        created_at = report.get("created_at", "")
+        injection = (
+            f'<script>'
+            f'window.__NIV_PRELOADED_REPORT__ = {report_json};'
+            f'window.__NIV_SHARED_MODE__ = true;'
+            f'window.__NIV_REPORT_ID__ = "{report_id}";'
+            f'window.__NIV_REPORT_CREATED__ = "{created_at}";'
+            f'</script>'
+        )
+        # Inject before </head> so globals are available when app.js runs
+        html = html.replace("</head>", f"{injection}\n</head>", 1)
+        return HTMLResponse(content=html)
 else:
     @app.get("/", include_in_schema=False)
     async def root():
         return {"message": "Niv AI API running", "docs": "/docs"}
 
-logger.info("Niv AI started")
+logger.info("Niv AI v3.0 started")

@@ -38,15 +38,56 @@ async def run(
     assumption_analysis: dict,
     computed_numbers: dict,
     raw_input: dict,
+    output_language: str = "english",
 ) -> dict:
+    """
+    Run the Decision Composer — final verdict synthesis.
+
+    Args:
+        llm: LLM client instance.
+        context: Agent 1 output.
+        financial_analysis: Agent 2 output.
+        risk_analysis: Agent 3 output.
+        property_analysis: Agent 4 output.
+        assumption_analysis: Agent 5 output.
+        computed_numbers: Pre-computed financial metrics dict.
+        raw_input: Original user input dict.
+        output_language: Language for narrative output. "english" (default), "hindi", or "marathi".
+            Numerical values and JSON keys always remain in English.
+
+    Returns:
+        Dict with verdict, confidence_score, verdict_reason, top_reasons, conditions_for_safety,
+        recommended_actions, and full_reasoning.
+    """
+    system_prompt = _build_system_prompt(output_language)
     user_message = _build_message(
         context, financial_analysis, risk_analysis,
         property_analysis, assumption_analysis, computed_numbers, raw_input,
     )
-    raw_response = await llm.run_final_agent(SYSTEM_PROMPT, user_message)
+    raw_response = await llm.run_final_agent(system_prompt, user_message)
     result = llm.parse_json(raw_response)
     logger.info("Decision composer complete — verdict: %s", result.get("verdict"))
     return result
+
+
+def _build_system_prompt(output_language: str = "english") -> str:
+    """Builds the system prompt, adding language instructions for non-English output."""
+    base = SYSTEM_PROMPT
+    if output_language == "hindi":
+        base += (
+            "\n\nLANGUAGE INSTRUCTION: Generate the verdict_reason, full_reasoning, "
+            "recommended_actions, and top_reasons fields in Hindi (Devanagari script). "
+            "Keep all numerical values, rupee amounts, percentages, field names, and the "
+            "JSON structure/keys in English. Only the narrative text should be in Hindi."
+        )
+    elif output_language == "marathi":
+        base += (
+            "\n\nLANGUAGE INSTRUCTION: Generate the verdict_reason, full_reasoning, "
+            "recommended_actions, and top_reasons fields in Marathi (Devanagari script). "
+            "Keep all numerical values, rupee amounts, percentages, field names, and the "
+            "JSON structure/keys in English. Only the narrative text should be in Marathi."
+        )
+    return base
 
 
 def _build_message(
