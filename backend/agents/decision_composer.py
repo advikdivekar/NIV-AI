@@ -1,7 +1,8 @@
-"""Agent 6: Decision Composer — final verdict synthesis. Uses Gemini with Groq fallback."""
+"""Agent 6: Decision Composer — final verdict synthesis with shared provider fallback."""
 from __future__ import annotations
 import logging
 from backend.llm.client import LLMClient
+from backend.utils.prompting import apply_bias_hardening
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ VERDICT RULES — follow these strictly in order:
 - "risky": everything else — stretched affordability (30-45%) OR fails 2 stress tests OR slightly overpriced OR thin runway (3-6 months)
 
 CRITICAL RULE: Assumption challenges from Agent 5 are adversarial hypotheticals — they should INFORM your reasoning but NEVER alone change a verdict. A buyer with 19% EMI/income, 18 months runway, and 4/4 stress tests is SAFE even if Agent 5 raised concerns. Weight the hard numbers over hypothetical challenges.
+FAIRNESS RULE: Never infer risk from non-financial identity traits. If evidence is missing, call it missing instead of negative.
 
 TONE: Trusted advisor. Plain language. Concrete rupee amounts. Always offer a path forward.
 
@@ -72,7 +74,7 @@ async def run(
 
 def _build_system_prompt(output_language: str = "english") -> str:
     """Builds the system prompt, adding language instructions for non-English output."""
-    base = SYSTEM_PROMPT
+    base = apply_bias_hardening(SYSTEM_PROMPT)
     if output_language == "hindi":
         base += (
             "\n\nLANGUAGE INSTRUCTION: Generate the verdict_reason, full_reasoning, "

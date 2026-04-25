@@ -75,7 +75,7 @@ def _risk_label(score: int) -> str:
         return "medium"
     if score <= 75:
         return "high"
-    return "high"
+    return "very_high"
 
 
 def _unavailable(builder_name: str) -> ReraData:

@@ -49,21 +49,47 @@ function onVisible(el, callback, threshold=0.2) {
   }, {threshold}).observe(el);
 }
 
+function formatIndianDigits(raw) {
+  if (!raw) return '';
+  if (raw.length <= 3) return raw;
+  const lastThree = raw.slice(-3);
+  const rest = raw.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  return `${rest},${lastThree}`;
+}
+
+function countDigitsBeforeCaret(value, caretPos) {
+  return value.slice(0, caretPos).replace(/\D/g, '').length;
+}
+
+function caretFromDigitIndex(formatted, digitIndex) {
+  if (digitIndex <= 0) return 0;
+  let digitsSeen = 0;
+  for (let i = 0; i < formatted.length; i++) {
+    if (/\d/.test(formatted[i])) digitsSeen += 1;
+    if (digitsSeen >= digitIndex) return i + 1;
+  }
+  return formatted.length;
+}
+
 /**
- * Formats number input with Indian comma system, stores raw in data-raw.
+ * Formats rupee-style numeric inputs with Indian commas while preserving caret position.
  * @param {HTMLInputElement} input
  */
 function setupIndianNumberFormat(input) {
   if (!input) return;
   input.addEventListener('input', function() {
-    let raw = this.value.replace(/[^0-9]/g, '');
-    if (raw.length > 12) raw = raw.slice(0, 12); // Limit to 12 digits (trillions)
+    const selectionStart = this.selectionStart ?? this.value.length;
+    let raw = this.value.replace(/\D/g, '');
+    if (raw.length > 12) raw = raw.slice(0, 12);
+
+    const digitsBeforeCaret = countDigitsBeforeCaret(this.value, selectionStart);
+    const formatted = formatIndianDigits(raw);
+
     this.dataset.raw = raw;
-    if (raw) {
-      this.value = Number(raw).toLocaleString('en-IN');
-    } else {
-      this.value = '';
-    }
+    this.value = formatted;
+
+    const nextCaret = caretFromDigitIndex(formatted, Math.min(digitsBeforeCaret, raw.length));
+    this.setSelectionRange(nextCaret, nextCaret);
   });
 }
 
@@ -71,6 +97,9 @@ function setupIndianNumberFormat(input) {
 let currentStep = 1;
 let selectedLanguage = 'english';
 let frictionGateAnswers = {};
+let frictionQuestionOrder = [];
+let frictionGateStage = 0;
+let frictionCurrentRequiredIds = [];
 let lastInput = null;
 let lastReport = null;
 let whatIfOriginal = null;
@@ -78,6 +107,40 @@ let whatIfDebounceTimer = null;
 let lastInput_cached = null;
 let comparisonReport = null;
 let currentShareUrl = '';
+let reportPageIndex = 0;
+let loadingQuoteTimer = null;
+let bankEmailReturnPage = 0;
+
+const reportPageDescriptions = [
+  'Start with the decision summary, core affordability, and top warning signals.',
+  'Pressure-test the purchase with scenarios, property signals, and rent-vs-buy context.',
+  'Review long-term cost, supporting documents, and action-oriented lender outputs.',
+  'Understand the reasoning, challenged assumptions, and buyer blind spots behind the verdict.',
+  'Compare alternatives, export the audit, and review data coverage before deciding.'
+];
+
+const loadingQuotes = [
+  {
+    quote: 'A good property decision is usually won at entry price, not at brochure quality.',
+    note: 'We are checking whether the numbers still make sense after EMI, maintenance, and real-world buffers.'
+  },
+  {
+    quote: 'In real estate, liquidity matters. A home is easy to enter and expensive to exit.',
+    note: 'This is why tenure, runway, and downside resilience matter as much as monthly affordability.'
+  },
+  {
+    quote: 'An affordable EMI can still be a weak decision if it wipes out your safety cushion.',
+    note: 'We are comparing affordability with survival capacity, not just bank eligibility.'
+  },
+  {
+    quote: 'Builder reputation reduces uncertainty, but it never replaces document and delay risk checks.',
+    note: 'We are weighing project signals, execution risk, and cost drag together.'
+  },
+  {
+    quote: 'The best property is not always the one you can buy. It is the one you can hold safely.',
+    note: 'Our agents are testing whether this purchase still works when life is slightly uncooperative.'
+  }
+];
 
 // --- HELPERS ---
 function esc(s) { const d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
@@ -178,13 +241,9 @@ function goStep(n) {
         else if (n === 3) { fill1.style.width = '100%'; fill2.style.width = '100%'; }
     }
 
-    // Show/hide TTC badge based on current view
-    const ttcBadge = document.getElementById('ttc-badge');
-    if (ttcBadge) ttcBadge.style.display = n >= 2 ? 'block' : 'none';
-
     currentStep = n;
     window.scrollTo(0, 0);
-    if (n === 2) { updateEMIPreview(); loadMarketRates(); fetchMarketRates(); }
+    if (n === 2) { updateEMIPreview(); loadMarketRates(); }
 }
 
 function showAllSteps(e) {
@@ -199,30 +258,6 @@ function showAllSteps(e) {
     document.querySelector('[data-step="3"]').appendChild(btn);
 }
 
-// --- NEW FIELD HANDLERS ---
-async function verifyGST() {
-    const gstin = getVal('builder_gstin');
-    const resDiv = document.getElementById('gst-result');
-    if(!gstin) return;
-
-    resDiv.textContent = "Verifying...";
-    resDiv.style.color = "var(--text-dim)";
-
-    try {
-        const res = await fetch(`${API}/api/v1/tools/gst-check?gstin=${encodeURIComponent(gstin)}`);
-        const data = await res.json();
-
-        if (res.ok && data.legal_name) {
-            resDiv.innerHTML = `<span style="color:var(--green)">✓ Valid: ${esc(data.legal_name)}</span>`;
-            document.getElementById('builder_name').value = data.legal_name; // Sync across fields
-        } else {
-            resDiv.textContent = "⚠️ Could not resolve GSTIN";
-            resDiv.style.color = "var(--yellow)";
-        }
-    } catch(e) {
-        resDiv.textContent = "Error verifying GST";
-    }
-}
 
 // --- LIVE METRICS (STEP 1 & 2) ---
 function updateFinancialHealth() {
@@ -360,11 +395,97 @@ function shouldShowFrictionGate() {
     return isUC || dpRatio > 0.60 || emiRatio > 0.40;
 }
 
+function getVisibleFrictionQuestions() {
+    return Array.from(document.querySelectorAll('.friction-question')).filter(
+        el => el.dataset.enabled !== 'false'
+    );
+}
+
+function setVisibleFrictionQuestions(questionIds) {
+    const required = new Set(questionIds);
+    document.querySelectorAll('.friction-question').forEach(el => {
+        const show = required.has(el.id);
+        el.classList.toggle('active', show);
+        el.style.display = show ? 'block' : 'none';
+    });
+}
+
+function refreshFrictionDots() {
+    const visibleIds = frictionQuestionOrder;
+    visibleIds.forEach((id, idx) => {
+        const dot = document.getElementById(`fd-${idx + 1}`);
+        if (!dot) return;
+        dot.classList.toggle('done', Boolean(frictionGateAnswers[id]));
+        dot.classList.toggle('current', frictionCurrentRequiredIds.includes(id));
+        dot.style.display = 'block';
+    });
+    for (let idx = visibleIds.length; idx < 5; idx += 1) {
+        const dot = document.getElementById(`fd-${idx + 1}`);
+        if (dot) {
+            dot.classList.remove('done');
+            dot.classList.remove('current');
+            dot.style.display = 'none';
+        }
+    }
+}
+
+function setFrictionStage(stage) {
+    frictionGateStage = stage;
+    const questions = frictionQuestionOrder;
+    if (!questions.length) {
+        frictionCurrentRequiredIds = [];
+        setVisibleFrictionQuestions([]);
+        return;
+    }
+
+    const currentQuestionId = questions[Math.min(stage, questions.length - 1)];
+    frictionCurrentRequiredIds = currentQuestionId ? [currentQuestionId] : [];
+    if (!frictionCurrentRequiredIds.length) frictionCurrentRequiredIds = [questions[0]];
+
+    setVisibleFrictionQuestions(frictionCurrentRequiredIds);
+    const labelEl = document.getElementById('friction-stage-label');
+    const copyEl = document.getElementById('friction-progress-copy');
+    const btn = document.getElementById('friction-proceed');
+    const totalSteps = questions.length;
+    const currentStep = Math.min(stage + 1, totalSteps);
+    if (labelEl) labelEl.textContent = `Question ${currentStep} of ${totalSteps}`;
+    if (copyEl) {
+        copyEl.textContent = currentStep < totalSteps
+            ? 'Answer this reality check to move to the next one.'
+            : 'Answer the final reality check, then explicitly start the full analysis.';
+    }
+    if (btn) {
+        btn.textContent = currentStep < totalSteps
+            ? 'Next Question →'
+            : 'Proceed to Analysis →';
+    }
+    refreshFrictionDots();
+}
+
+function setupFrictionGate() {
+    frictionGateAnswers = {};
+    frictionGateStage = 0;
+    frictionCurrentRequiredIds = [];
+    document.querySelectorAll('.friction-option.selected').forEach(el => el.classList.remove('selected'));
+    ['fq1', 'fq2', 'fq3', 'fq4', 'fq5'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.dataset.enabled = 'true';
+            el.style.display = 'none';
+            const warn = el.querySelector('.friction-warning');
+            if (warn) warn.style.display = 'none';
+        }
+    });
+
+    frictionQuestionOrder = getVisibleFrictionQuestions().map(el => el.id);
+    setFrictionStage(0);
+    refreshFrictionDots();
+}
+
 function onSubmitClick() {
     if (shouldShowFrictionGate()) {
         document.getElementById('friction-gate').style.display = 'flex';
-        document.getElementById('fq3').style.display = getVal('is_ready_to_move') === 'false' ? 'block' : 'none';
-        document.getElementById('fq5').style.display = getVal('builder_name') ? 'block' : 'none';
+        setupFrictionGate();
         checkFrictionComplete();
     } else {
         submitAnalysis();
@@ -389,35 +510,82 @@ function selectFriction(qId, val, btn) {
 }
 
 function checkFrictionComplete() {
-    // Use computed style so fq3/fq5 (shown via inline style, no .active class) are correctly counted
-    const visibleQs = Array.from(document.querySelectorAll('.friction-question')).filter(
-        el => window.getComputedStyle(el).display !== 'none'
-    );
-    const answeredCount = visibleQs.filter(el => frictionGateAnswers[el.id]).length;
+    const visibleQs = getVisibleFrictionQuestions();
+    const requiredCount = frictionCurrentRequiredIds.length;
+    const answeredCount = frictionCurrentRequiredIds.filter(id => frictionGateAnswers[id]).length;
     const btn = document.getElementById('friction-proceed');
+    const sumEl = document.getElementById('friction-summary');
+    const meterSegments = Array.from(document.querySelectorAll('#concern-meter .cm-seg'));
+    const countEl = document.getElementById('friction-progress-count');
+    const visibleIds = new Set(frictionQuestionOrder);
+    const allQuestions = getVisibleFrictionQuestions();
+    const concerns = allQuestions.filter(el => {
+        const answer = frictionGateAnswers[el.id];
+        return answer === 'C' || (answer === 'B' && el.id !== 'fq3');
+    }).length;
 
-    if (answeredCount === visibleQs.length && visibleQs.length > 0) {
+    meterSegments.forEach((seg, idx) => {
+        seg.style.background = idx < concerns ? 'var(--red)' : 'var(--border)';
+    });
+    refreshFrictionDots();
+    if (countEl) countEl.textContent = `${answeredCount} / ${requiredCount} answered`;
+
+    if (answeredCount === requiredCount && requiredCount > 0) {
         btn.disabled = false;
-        const concerns = Object.entries(frictionGateAnswers).filter(([k, v]) => v === 'C' || (v === 'B' && k !== 'fq3')).length;
-        const sumEl = document.getElementById('friction-summary');
-        sumEl.style.display = 'block';
-        if (concerns === 0) {
-            sumEl.style.background = 'var(--green-bg)'; sumEl.style.color = 'var(--green)';
-            sumEl.textContent = '✓ You\'ve done your homework — proceeding to analysis.';
-        } else if (concerns <= 2) {
-            sumEl.style.background = 'var(--yellow-bg)'; sumEl.style.color = 'var(--yellow)';
-            sumEl.textContent = '⚠ A few things to keep in mind during the analysis.';
-        } else {
-            sumEl.style.background = 'var(--red-bg)'; sumEl.style.color = 'var(--red)';
-            sumEl.textContent = '✗ The analysis will surface these risks — read it carefully.';
+        if (sumEl) {
+            sumEl.style.display = 'block';
+            if (frictionGateStage < frictionQuestionOrder.length - 1) {
+                sumEl.style.background = 'var(--surface-2)';
+                sumEl.style.borderColor = 'var(--border)';
+                sumEl.style.color = 'var(--text)';
+                sumEl.textContent = 'Response captured. Continue when you are ready for the next reality check.';
+            } else if (concerns === 0) {
+                sumEl.style.background = 'var(--green-bg)';
+                sumEl.style.borderColor = 'var(--green-border)';
+                sumEl.style.color = 'var(--green)';
+                sumEl.textContent = 'You have answered every visible check. Proceeding with a clean pre-analysis profile.';
+            } else if (concerns <= 2) {
+                sumEl.style.background = 'var(--yellow-bg)';
+                sumEl.style.borderColor = 'var(--yellow-border)';
+                sumEl.style.color = 'var(--yellow)';
+                sumEl.textContent = 'A few caution signals showed up. The analysis will weigh them directly.';
+            } else {
+                sumEl.style.background = 'var(--red-bg)';
+                sumEl.style.borderColor = 'var(--red-border)';
+                sumEl.style.color = 'var(--red)';
+                sumEl.textContent = 'Multiple concern signals are active. Read the analysis carefully before deciding.';
+            }
         }
     } else {
         btn.disabled = true;
+        if (sumEl) {
+            sumEl.style.display = 'none';
+            sumEl.textContent = '';
+        }
     }
+
+    Object.keys(frictionGateAnswers).forEach(key => {
+        if (!visibleIds.has(key)) delete frictionGateAnswers[key];
+    });
 }
 
-function closeFrictionGate() { document.getElementById('friction-gate').style.display = 'none'; }
-function proceedFromFriction() { closeFrictionGate(); submitAnalysis(); }
+function closeFrictionGate() {
+    document.getElementById('friction-gate').style.display = 'none';
+    document.querySelectorAll('.friction-question').forEach(el => {
+        el.classList.remove('active');
+        el.style.display = 'none';
+    });
+}
+function proceedFromFriction() {
+    if (frictionCurrentRequiredIds.some(id => !frictionGateAnswers[id])) return;
+    if (frictionGateStage < frictionQuestionOrder.length - 1) {
+        setFrictionStage(frictionGateStage + 1);
+        checkFrictionComplete();
+        return;
+    }
+    closeFrictionGate();
+    submitAnalysis();
+}
 
 // --- SUBMISSION & API ---
 function collectFormData() {
@@ -461,14 +629,39 @@ function setA(id, st) {
     const dot = document.getElementById(id + '-dot');
     const txt = document.getElementById(id);
     if (dot) dot.className = 'agent-dot ' + (st === 'done' ? 'done' : st === 'running' ? 'running' : '');
-    if (txt) txt.textContent = st === 'running' ? 'running…' : st === 'done' ? '✓ done' : 'waiting';
+    if (txt) {
+        txt.textContent = st === 'running' ? 'running…' : st === 'done' ? '✓ done' : 'waiting';
+        txt.classList.remove('done', 'running');
+        if (st === 'done' || st === 'running') txt.classList.add(st);
+    }
+}
+function updateLoadingQuote(index) {
+    const item = loadingQuotes[index % loadingQuotes.length];
+    const quoteEl = document.getElementById('loading-quote');
+    const noteEl = document.getElementById('loading-quote-note');
+    if (quoteEl) quoteEl.textContent = item.quote;
+    if (noteEl) noteEl.textContent = item.note;
+}
+function startLoadingQuotes() {
+    clearInterval(loadingQuoteTimer);
+    let idx = 0;
+    updateLoadingQuote(idx);
+    loadingQuoteTimer = setInterval(() => {
+        idx = (idx + 1) % loadingQuotes.length;
+        updateLoadingQuote(idx);
+    }, 3500);
+}
+function stopLoadingQuotes() {
+    clearInterval(loadingQuoteTimer);
+    loadingQuoteTimer = null;
 }
 function startA() {
     const ids = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']; let i = 0;
+    startLoadingQuotes();
     function t() { if (i > 0) setA(ids[i - 1], 'done'); if (i < ids.length) { setA(ids[i], 'running'); i++; _t = setTimeout(t, 4000); } }
     t();
 }
-function stopA() { clearTimeout(_t);['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(id => setA(id, 'done')); }
+function stopA() { clearTimeout(_t); stopLoadingQuotes(); ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(id => setA(id, 'done')); }
 
 function showErr(m) { const el = document.getElementById('err'); el.style.display = 'block'; el.textContent = '⚠ ' + m; window.scrollTo(0, 0); }
 
@@ -484,6 +677,7 @@ async function submitAnalysis() {
     document.getElementById('form-section').style.display = 'none';
     document.getElementById('loading-view').style.display = 'block';
     document.getElementById('report-view').style.display = 'none';
+    document.body.classList.remove('report-visible');
     startA();
     updateAnalysisProgress();
 
@@ -496,150 +690,467 @@ async function submitAnalysis() {
         document.getElementById('loading-view').style.display = 'none';
         renderReport(data);
         document.getElementById('report-view').style.display = 'block';
+        document.body.classList.add('report-visible');
         window.scrollTo(0, 0);
         autoSaveReport(data);
     } catch (e) {
         stopA();
         document.getElementById('loading-view').style.display = 'none';
         document.getElementById('form-section').style.display = 'block';
-        showErr('Analysis failed: ' + e.message);
+        if (e.message.includes('429') || e.message.toLowerCase().includes('rate limit')) {
+            showErr('You have reached the analysis limit (5 per 10 minutes). Please wait a moment and try again.');
+        } else if (e.message.includes('503')) {
+            showErr('The AI service is temporarily unavailable. Please try again in 30 seconds.');
+        } else {
+            showErr('Analysis failed: ' + e.message + '. If this persists, try refreshing the page.');
+        }
     }
 }
 
-// --- RENDERING ---
+function renderEmptyState(message) {
+    return `<div class="empty-state-note">${esc(message)}</div>`;
+}
+
+function renderBulletList(items, emptyMessage) {
+    return items && items.length
+        ? items.map(item => `<li>${esc(item)}</li>`).join('')
+        : renderEmptyState(emptyMessage);
+}
+
+function getAffordabilitySummary(surplus, emiRatio, runway) {
+    if (surplus > 20000 && emiRatio < 0.35 && runway >= 6) {
+        return 'The current structure looks manageable on paper and still leaves some room for mistakes.';
+    }
+    if (surplus > 5000 && emiRatio < 0.45 && runway >= 3) {
+        return 'The purchase is possible, but the margin for error is thin and needs disciplined cash management.';
+    }
+    return 'The purchase currently looks fragile because one bad surprise could pressure both EMI comfort and savings.';
+}
+
+function getPropertySummary(propertyAssessment) {
+    const verdict = propertyAssessment?.price_assessment?.verdict || '';
+    if (verdict === 'good_value') return 'The asset looks reasonably priced versus the local benchmark, so the main question shifts to holding power and risk.';
+    if (verdict === 'overpriced') return 'The property appears expensive relative to local benchmarks, which raises the cost of a wrong decision.';
+    return 'Use this page to separate property quality from emotional appeal before you commit.';
+}
+
+function getStressSummary(stressScenarios = []) {
+    const passed = stressScenarios.filter(s => s.can_survive).length;
+    if (passed >= 3) return 'Most core downside scenarios still hold, which is a strong sign of resilience.';
+    if (passed >= 2) return 'Some shocks are survivable, but the decision is sensitive to disruption.';
+    return 'This purchase is vulnerable under realistic stress, so caution is warranted.';
+}
+
+function formatEmailDraftPreview(text) {
+    if (!text) return '';
+    const normalized = text.replace(/\r\n/g, '\n').trim();
+    const blocks = normalized.split(/\n\s*\n/).map(block => block.trim()).filter(Boolean);
+    const html = blocks.map((block, index) => {
+        const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+        const heading = lines[0];
+        const isSectionHeading = /^[A-Z][A-Z\s/&-]{3,}$/.test(heading);
+        if (isSectionHeading) {
+            const paragraphs = lines.slice(1).map(line => `<p class="bank-email-paragraph">${esc(line)}</p>`).join('');
+            return `
+                <section class="bank-email-block">
+                    <div class="bank-email-block-label">${esc(heading)}</div>
+                    <div class="bank-email-block-body">${paragraphs || `<p class="bank-email-paragraph">${esc(heading)}</p>`}</div>
+                </section>`;
+        }
+        return `
+            <section class="bank-email-block">
+                ${index === 0 ? '<div class="bank-email-block-label">Opening Note</div>' : ''}
+                <div class="bank-email-block-body">
+                    ${lines.map(line => `<p class="bank-email-paragraph">${esc(line)}</p>`).join('')}
+                </div>
+            </section>`;
+    }).join('');
+    return html;
+}
+
+function setReportPage(index) {
+    const pages = Array.from(document.querySelectorAll('#report-view .report-page'));
+    if (!pages.length) return;
+    reportPageIndex = Math.max(0, Math.min(index, pages.length - 1));
+    pages.forEach((page, idx) => page.classList.toggle('active', idx === reportPageIndex));
+
+    const title = pages[reportPageIndex].dataset.pageTitle || `Page ${reportPageIndex + 1}`;
+    const titleEl = document.getElementById('report-page-title');
+    const progressEl = document.getElementById('report-page-progress');
+    const subtitleEl = document.getElementById('report-page-subtitle');
+    if (titleEl) titleEl.textContent = `Page ${reportPageIndex + 1} of ${pages.length} · ${title}`;
+    if (progressEl) progressEl.textContent = `Page ${reportPageIndex + 1} of ${pages.length}`;
+    if (subtitleEl) subtitleEl.textContent = reportPageDescriptions[reportPageIndex] || 'A guided view of your audit.';
+
+    pages.forEach((_, idx) => {
+        const dot = document.getElementById(`report-page-dot-${idx}`);
+        if (dot) dot.classList.toggle('active', idx === reportPageIndex);
+    });
+
+    const prevBtn = document.getElementById('report-prev-btn');
+    const nextBtn = document.getElementById('report-next-btn');
+    if (prevBtn) prevBtn.disabled = reportPageIndex === 0;
+    if (nextBtn) {
+        nextBtn.disabled = reportPageIndex === pages.length - 1;
+        nextBtn.textContent = reportPageIndex === pages.length - 1 ? 'Done' : 'Next';
+    }
+
+    const top = document.getElementById('report-view');
+    if (top) top.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function nextReportPage() {
+    const pages = document.querySelectorAll('#report-view .report-page');
+    if (reportPageIndex < pages.length - 1) setReportPage(reportPageIndex + 1);
+}
+
+function prevReportPage() {
+    if (reportPageIndex > 0) setReportPage(reportPageIndex - 1);
+}
+
+function normalizeLabel(value) {
+    return String(value || '').replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+}
+
+function startCase(value) {
+    return normalizeLabel(value).replace(/\w\S*/g, part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase());
+}
+
+function getZoneClass(type, value) {
+    if (type === 'ratio') return value < 0.30 ? 'safe' : value < 0.45 ? 'warn' : 'danger';
+    if (type === 'runway') return value >= 6 ? 'safe' : value >= 3 ? 'warn' : 'danger';
+    if (type === 'count') return value >= 3 ? 'safe' : value >= 2 ? 'warn' : 'danger';
+    if (type === 'price') return value === 'overpriced' ? 'danger' : value ? 'safe' : 'warn';
+    return 'info';
+}
+
+function makeStatusChip(text, zone) {
+    return `<span class="status-chip ${zone}">${esc(text)}</span>`;
+}
+
+function toggleAccordion(button) {
+    const card = button.closest('.accordion-card');
+    if (!card) return;
+    const isOpen = card.classList.toggle('open');
+    button.setAttribute('aria-expanded', String(isOpen));
+}
+
+function getCashflowSegments(computed = {}, financial = {}) {
+    const income = (financial.monthly_income || 0) + (financial.spouse_income || 0);
+    const emi = computed.monthly_emi || 0;
+    const ownership = computed.monthly_ownership_cost || emi;
+    const maintenance = Math.max(ownership - emi, 0);
+    const existingEmis = financial.existing_emis || 0;
+    const expenses = financial.monthly_expenses || 0;
+    const surplus = Math.max(income - emi - maintenance - existingEmis - expenses, 0);
+    return [
+        { label: 'New Home EMI', value: emi, color: '#ef4444', hint: 'Primary home loan payment.' },
+        { label: 'Maint. + Insurance', value: maintenance, color: '#f59e0b', hint: 'Recurring ownership overhead.' },
+        { label: 'Existing EMIs', value: existingEmis, color: '#f97316', hint: 'Other debt already in the system.' },
+        { label: 'Living Expenses', value: expenses, color: '#64748b', hint: 'Monthly life costs not tied to the home.' },
+        { label: 'Monthly Surplus', value: surplus, color: '#22c55e', hint: 'Cash left after all ongoing obligations.' }
+    ].filter(item => item.value > 0 || item.label === 'Monthly Surplus');
+}
+
+function renderCashflowSection(computed = {}, financial = {}) {
+    const household = (financial.monthly_income || 0) + (financial.spouse_income || 0);
+    if (household <= 0) return renderEmptyState('Income details are needed to show the monthly cash-flow snapshot.');
+    const ratio = computed.emi_to_income_ratio || 0;
+    const runway = computed.emergency_runway_months || 0;
+    const ownership = computed.monthly_ownership_cost || computed.monthly_emi || 0;
+    const surplus = household - ownership - (financial.existing_emis || 0) - (financial.monthly_expenses || 0);
+    const segments = getCashflowSegments(computed, financial);
+    return `
+        <div class="bank-email-insight" style="display:block; margin-bottom:18px;">${esc(getAffordabilitySummary(surplus, ratio, runway))}</div>
+        <div class="rcard cashflow-card">
+            <div class="cashflow-kpis">
+                <div class="cashflow-kpi">
+                    <div class="metric-label">Monthly Surplus</div>
+                    <div class="cashflow-kpi-value" style="color:${surplus >= 0 ? 'var(--text)' : 'var(--red)'}">${surplus >= 0 ? inr(surplus) : '−' + inr(Math.abs(surplus))}</div>
+                </div>
+                <div class="cashflow-kpi">
+                    <div class="metric-label">EMI / Income</div>
+                    <div class="cashflow-kpi-value">${pct(ratio)}</div>
+                </div>
+                <div class="cashflow-kpi">
+                    <div class="metric-label">Runway</div>
+                    <div class="cashflow-kpi-value">${runway.toFixed(1)} mo</div>
+                </div>
+            </div>
+            <div class="metric-label" style="margin-top:20px;">Money Flow Snapshot</div>
+            <div class="cashflow-stack">
+                ${segments.map(segment => {
+                    const share = household > 0 ? (segment.value / household) * 100 : 0;
+                    return `<button type="button" class="cashflow-segment" data-cash-segment data-label="${esc(segment.label)}" data-value="${segment.value}" data-share="${share.toFixed(1)}" style="width:${Math.max(share, 8)}%;background:${segment.color};">
+                        <span class="cashflow-segment-inner"><span>${esc(segment.label)}</span><span class="cashflow-segment-value">${share.toFixed(0)}%</span></span>
+                    </button>`;
+                }).join('')}
+            </div>
+            <div class="cashflow-details">
+                ${segments.map(segment => {
+                    const share = household > 0 ? (segment.value / household) * 100 : 0;
+                    return `<div class="cashflow-row">
+                        <div><div class="cashflow-row-label">${esc(segment.label)}</div><div class="cashflow-row-hint">${esc(segment.hint)}</div></div>
+                        <div class="cashflow-row-amount">${inr(segment.value)}</div>
+                        <div class="cashflow-row-share">${share.toFixed(1)}% of income</div>
+                    </div>`;
+                }).join('')}
+            </div>
+        </div>`;
+}
+
+function renderScorecardSection(report, computed, ratio, runway, dpRatio) {
+    const priceVerdict = report.property_assessment?.price_assessment?.verdict || '';
+    const stressPassed = (report.stress_scenarios || []).filter(s => s.can_survive).length;
+    const ratioZone = getZoneClass('ratio', ratio);
+    const runwayZone = getZoneClass('runway', runway);
+    const priceZone = getZoneClass('price', priceVerdict);
+    const stressZone = getZoneClass('count', stressPassed);
+    const gaugePercent = Math.min(ratio / 0.60, 1);
+    const radius = 58;
+    const circumference = Math.PI * radius;
+    const dashOffset = circumference - (circumference * gaugePercent);
+    const gaugeColor = ratioZone === 'safe' ? '#22c55e' : ratioZone === 'warn' ? '#f59e0b' : '#ef4444';
+    const runwaySegments = Array.from({ length: 8 }, (_, index) => {
+        const threshold = ((index + 1) / 8) * 12;
+        return `<span class="runway-segment ${runway >= threshold ? `filled ${runwayZone}` : ''}"></span>`;
+    }).join('');
+    return `
+        <div class="bank-email-insight" style="display:block; margin-bottom:18px;">
+            ${stressPassed >= 3 ? 'The structure looks broadly resilient, but document and execution risks still matter.' : stressPassed >= 2 ? 'The structure is workable but clearly stretched, so one weak area can drag the whole decision down.' : 'Multiple weak points are active, so the deal needs better terms or better buffers.'}
+        </div>
+        <div class="scorecard-shell">
+            <div class="scorecard-card">
+                <div class="scorecard-topline">
+                    <div><div class="metric-label">EMI Load</div><div class="scorecard-value">${pct(ratio)}</div></div>
+                    <span class="scorecard-zone ${ratioZone}">${ratioZone === 'safe' ? 'Healthy' : ratioZone === 'warn' ? 'Stretched' : 'Danger'}</span>
+                </div>
+                <div class="gauge-shell">
+                    <svg viewBox="0 0 160 96" width="100%" height="120" aria-hidden="true">
+                        <path class="gauge-track" d="M20 80 A60 60 0 0 1 140 80"></path>
+                        <path class="gauge-fill" d="M20 80 A60 60 0 0 1 140 80" style="stroke:${gaugeColor};stroke-dasharray:${circumference};stroke-dashoffset:${dashOffset};"></path>
+                    </svg>
+                    <div class="gauge-scale"><span>Easy</span><span>Borderline</span><span>Too High</span></div>
+                </div>
+                <div class="scorecard-note">This shows clearly how much household income the home loan consumes every month.</div>
+            </div>
+            <div class="scorecard-card">
+                <div class="scorecard-topline">
+                    <div><div class="metric-label">Safety Buffer</div><div class="scorecard-value">${runway.toFixed(1)} mo</div></div>
+                    <span class="scorecard-zone ${runwayZone}">${runwayZone === 'safe' ? 'Comfortable' : runwayZone === 'warn' ? 'Thin' : 'Fragile'}</span>
+                </div>
+                <div class="runway-meter">${runwaySegments}</div>
+                <div class="scorecard-note">${runway >= 6 ? 'Savings cover a meaningful disruption window.' : runway >= 3 ? 'There is some room for mistakes, but not much.' : 'One shock can pressure both EMI comfort and savings.'}</div>
+            </div>
+            <div class="scorecard-card full">
+                <div class="scorecard-mini-grid">
+                    <div class="scorecard-mini">
+                        <div class="metric-label">Stress Tests</div>
+                        <div class="scorecard-mini-value">${stressPassed}/4</div>
+                        ${makeStatusChip(stressZone === 'safe' ? 'Resilient' : stressZone === 'warn' ? 'Mixed' : 'Vulnerable', stressZone)}
+                    </div>
+                    <div class="scorecard-mini">
+                        <div class="metric-label">Savings Used</div>
+                        <div class="scorecard-mini-value">${pct(dpRatio)}</div>
+                        ${makeStatusChip(dpRatio < 0.60 ? 'Safe' : dpRatio < 0.80 ? 'High' : 'Risky', dpRatio < 0.60 ? 'safe' : dpRatio < 0.80 ? 'warn' : 'danger')}
+                    </div>
+                    <div class="scorecard-mini">
+                        <div class="metric-label">Price Signal</div>
+                        <div class="scorecard-mini-value">${priceVerdict ? startCase(priceVerdict) : 'Pending'}</div>
+                        ${makeStatusChip(priceVerdict ? startCase(priceVerdict) : 'Awaiting', priceZone)}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+}
+
+function renderPropertyAssessment(pa = {}) {
+    const flags = pa.property_flags || [];
+    return `<div class="bank-email-insight" style="display:block; margin-bottom:18px;">${esc(getPropertySummary(pa))}</div>
+        <table class="dtable"><tr><td>Your price/sqft</td><td>${inr(pa.price_assessment?.price_per_sqft)}</td></tr><tr><td>Area median</td><td>${inr(pa.price_assessment?.area_median_per_sqft)}</td></tr></table>
+        ${flags.length ? `<div class="property-flag-list">${flags.map(flag => `
+            <div class="property-flag-card">
+                <div class="property-flag-top">${makeStatusChip(startCase(flag.severity), flag.severity === 'critical' ? 'danger' : flag.severity === 'high' || flag.severity === 'medium' ? 'warn' : 'safe')}<strong>${esc(startCase(flag.flag))}</strong></div>
+                <div>${esc(flag.detail)}</div>
+            </div>`).join('')}</div>` : renderEmptyState('No major property flags were returned in this pass, so review documents and builder history carefully.')}
+        ${renderOcCcStatus(pa.oc_cc_status)}`;
+}
+
+function renderAccordionSection(summary, items, emptyMessage) {
+    if (!items.length) return renderEmptyState(emptyMessage);
+    return `<div class="accordion-stack">
+        <div class="bank-email-insight" style="display:block; margin-bottom:0;">${esc(summary)}</div>
+        ${items.map((item, index) => `<div class="accordion-card ${index === 0 ? 'open' : ''}">
+            <button type="button" class="accordion-toggle" onclick="toggleAccordion(this)" aria-expanded="${index === 0 ? 'true' : 'false'}">
+                <span class="accordion-toggle-main"><span class="accordion-title">${esc(item.title)}</span><span class="accordion-summary">${esc(item.summary)}</span></span>
+                <span class="accordion-chevron">⌄</span>
+            </button>
+            <div class="accordion-body"><div class="detail-list">${item.details.map(detail => `<div class="detail-row"><span class="detail-icon">${esc(detail.icon || '•')}</span><div>${detail.status ? makeStatusChip(detail.status, detail.zone || 'info') : ''}<div style="margin-top:${detail.status ? '8px' : '0'}; line-height:1.65;">${esc(detail.text)}</div></div></div>`).join('')}</div></div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function setupCashflowInteractions() {
+    const tooltip = document.getElementById('cashflow-tooltip');
+    const segments = Array.from(document.querySelectorAll('[data-cash-segment]'));
+    if (!tooltip || !segments.length) return;
+    const clearDim = () => segments.forEach(seg => seg.classList.remove('is-dimmed'));
+    const hideTooltip = () => { tooltip.style.display = 'none'; clearDim(); };
+    const showTooltip = (segment, event) => {
+        segments.forEach(seg => seg.classList.toggle('is-dimmed', seg !== segment));
+        tooltip.innerHTML = `<div class="cashflow-tooltip-title">${esc(segment.dataset.label || '')}</div><div class="cashflow-tooltip-value">${inr(Number(segment.dataset.value || 0))}</div><div class="cashflow-tooltip-meta">${esc(segment.dataset.share || '0')}% of total monthly income</div>`;
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${Math.min((event?.clientX || segment.getBoundingClientRect().left) + 16, window.innerWidth - 220)}px`;
+        tooltip.style.top = `${Math.max((event?.clientY || segment.getBoundingClientRect().top) - 18, 16)}px`;
+    };
+    segments.forEach(segment => {
+        segment.addEventListener('mouseenter', event => showTooltip(segment, event));
+        segment.addEventListener('mousemove', event => showTooltip(segment, event));
+        segment.addEventListener('mouseleave', hideTooltip);
+        segment.addEventListener('focus', event => showTooltip(segment, event));
+        segment.addEventListener('blur', hideTooltip);
+    });
+}
+
+function setSliderVisual(input) {
+    if (!input) return;
+    const min = Number(input.min || 0);
+    const max = Number(input.max || 100);
+    const value = Number(input.value || 0);
+    const pctValue = ((value - min) / (max - min || 1)) * 100;
+    input.style.background = `linear-gradient(90deg, #4f46e5 0%, #4f46e5 ${pctValue}%, #d7dbe7 ${pctValue}%, #d7dbe7 100%)`;
+}
+
 function renderReport(r) {
     const c = r.computed_numbers || {};
     const v = (r.verdict || 'risky').toLowerCase();
     document.getElementById('compare-bar').style.display = 'block';
 
-    // Verdict
+    const integrityScore = r.bias_detection?.integrity_score || 0;
+    const integrityColor = integrityScore >= 80 ? 'var(--green)' : integrityScore >= 60 ? 'var(--yellow)' : 'var(--red)';
     document.getElementById('r-verdict').innerHTML = `
-                <div class="verdict-display" aria-label="Analysis verdict: ${v}">
-                    <div class="verdict-word v-word ${v.toUpperCase()}">${esc(v).toUpperCase()}</div>
-                    <div style="font-family:var(--font-mono); font-size:14px; margin-bottom:24px;">${esc(r.verdict_reason || '')}</div>
-                    <div class="verdict-meta">
-                        <span class="badge ${v === 'safe' ? 'low' : v === 'reconsider' ? 'critical' : 'high'}">CONFIDENCE: ${r.confidence_score || '?'}/10</span>
-                    </div>
-                </div>`;
+        <div class="verdict-display" aria-label="Analysis verdict: ${v}">
+            <div class="verdict-word v-word ${v.toUpperCase()}">${esc(v).toUpperCase()}</div>
+            <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+                <span style="font-family:var(--font-mono);font-size:14px;">${esc(r.verdict_reason || '')}</span>
+                <span style="font-family:var(--font-mono);font-size:11px;padding:4px 12px;border-radius:20px;background:rgba(0,0,0,0.04);border:1px solid var(--border);">
+                    AI Integrity: <strong style="color:${integrityColor}">${integrityScore}/100</strong>${r.bias_detection?.verdict_was_corrected ? ' · <span style="color:var(--red)">Corrected</span>' : ''}
+                </span>
+            </div>
+            <div class="confidence-bar"><div class="confidence-fill" id="conf-fill" data-target="${Math.min((r.confidence_score || 0) * 10, 100)}%" style="width:0%"></div></div>
+        </div>`;
     animateVerdictEntrance(document.querySelector('.v-word'));
-    renderBiasDetection(r.bias_detection);
+    renderVerdictPulse(document.getElementById('r-verdict'), v);
 
-    // Research Warnings (staggered entrance)
     const rw = r.research_warnings || [];
     const rwDiv = document.getElementById('r-research-warnings');
     if (rw.length > 0) {
         rwDiv.style.display = 'block';
-        rwDiv.innerHTML = `<div class="section-label" style="display:none;"><span>02 ·</span> RESEARCH WARNINGS</div>` +
-            rw.map((w, i) => `<div class="research-warning ${w.severity} warning-enter" style="animation-delay:${i * 80}ms"><div style="font-family:var(--font-mono); font-size:10px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">${w.severity} SEVERITY</div><div style="font-size:14px; color:var(--text); margin-bottom:8px;">${esc(w.stat)}</div><div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted)">Source: ${esc(w.source)}</div></div>`).join('');
-    } else { rwDiv.style.display = 'none'; }
+        rwDiv.innerHTML = rw.map((w, i) => `<div class="research-warning ${w.severity} warning-enter" style="animation-delay:${i * 80}ms"><div style="font-family:var(--font-mono); font-size:10px; text-transform:uppercase; color:var(--text-muted); margin-bottom:8px;">${w.severity} severity</div><div style="font-size:14px; color:var(--text); margin-bottom:8px;">${esc(w.stat)}</div><div style="font-family:var(--font-mono); font-size:10px; color:var(--text-muted)">Source: ${esc(w.source)}</div></div>`).join('');
+    } else {
+        rwDiv.style.display = 'none';
+    }
 
-    // Cashflow
     const household = (lastInput?.financial?.monthly_income || 0) + (lastInput?.financial?.spouse_income || 0);
     const existEMIs = lastInput?.financial?.existing_emis || 0;
     const expenses = lastInput?.financial?.monthly_expenses || 0;
-    const emi = c.monthly_emi || 0;
     const ownership = c.monthly_ownership_cost || 0;
     const surplus = household - ownership - existEMIs - expenses;
-    const surplusCls = surplus > 20000 ? 'good' : surplus > 5000 ? 'warn' : 'crit';
-    const barPct = (n) => Math.min(Math.max((n / household) * 100, 2), 100).toFixed(1);
+    const emiR = c.emi_to_income_ratio || 0;
+    const runway = c.emergency_runway_months || 0;
+    const dpR = c.down_payment_to_savings_ratio || 0;
 
-    document.getElementById('r-cashflow').innerHTML = `
-                <div class="cf-title">💸 Your Monthly Cash Flow After Purchase</div>
-                <div class="cf-main">
-                    <div class="cf-surplus-box">
-                        <div class="cf-surplus-label">Monthly Surplus</div>
-                        <div class="cf-surplus-value ${surplusCls}">${surplus >= 0 ? inr(surplus) : '−' + inr(Math.abs(surplus))}</div>
-                        <div class="cf-surplus-sub ${surplusCls}">${surplus > 20000 ? '✓ Healthy buffer' : surplus > 5000 ? '⚠ Thin margin' : '✗ Critical deficit'}</div>
-                    </div>
-                    <div class="cf-waterfall">
-                        <div class="cf-row"><span class="cf-row-label">Total Income</span><span class="cf-row-amount income">+${inr(household)}</span><div class="cf-bar-wrap"><div class="cf-bar income" style="width:100%"></div></div></div>
-                        <div class="cf-row"><span class="cf-row-label">New Home EMI</span><span class="cf-row-amount out">−${inr(emi)}</span><div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(emi)}%"></div></div></div>
-                        <div class="cf-row"><span class="cf-row-label">Maint + Insur</span><span class="cf-row-amount out">−${inr(ownership - emi)}</span><div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(ownership - emi)}%"></div></div></div>
-                        ${existEMIs > 0 ? `<div class="cf-row"><span class="cf-row-label">Existing EMIs</span><span class="cf-row-amount out">−${inr(existEMIs)}</span><div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(existEMIs)}%"></div></div></div>` : ''}
-                        <div class="cf-row"><span class="cf-row-label">Living Expenses</span><span class="cf-row-amount out">−${inr(expenses)}</span><div class="cf-bar-wrap"><div class="cf-bar out" style="width:${barPct(expenses)}%"></div></div></div>
-                    </div>
-                </div>`;
+    try { document.getElementById('r-cashflow').innerHTML = renderCashflowSection(c, lastInput?.financial || {}); } catch(e) { document.getElementById('r-cashflow').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('renderCashflowSection failed:', e); }
+    try { document.getElementById('r-scorecard').innerHTML = renderScorecardSection(r, c, emiR, runway, dpR); } catch(e) { document.getElementById('r-scorecard').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('renderScorecardSection failed:', e); }
 
-    // Scorecard
-    const sc = (state, label, val, verdict, ctx) => {
-        let stColor = state === 'pass' ? 'var(--green)' : state === 'warn' ? 'var(--yellow)' : state === 'neutral' ? 'var(--text-faint)' : 'var(--red)';
-        return `<div class="metric-cell" aria-label="${label}: ${val}, status ${state}">
-                    <div class="metric-label">${label}</div>
-                    <div class="metric-number">${val}</div>
-                    <div class="metric-status" style="color:${stColor}">${state === 'pass' ? 'PASS' : state === 'warn' ? 'CAUTION' : state === 'neutral' ? 'INFO' : 'FAIL'} · ${verdict}</div>
-                </div>`;
-    };
-
-    const emiR = c.emi_to_income_ratio || 0; const runway = c.emergency_runway_months || 0;
-    const dpR = c.down_payment_to_savings_ratio || 0; const spass = (r.stress_scenarios || []).filter(s => s.can_survive).length;
-    const crits = (r.assumptions_challenged || []).filter(a => ['critical', 'high'].includes(a.severity)).length;
-    const pv = r.property_assessment?.price_assessment?.verdict || '';
-
-    document.getElementById('r-scorecard').innerHTML = `<div class="metric-grid">` +
-        sc(emiR < .30 ? 'pass' : emiR < .45 ? 'warn' : 'fail', 'EMI/Income', pct(emiR), emiR < .30 ? '✓ Healthy' : emiR < .45 ? '⚠ Stretched' : '✗ Too High', `EMI ${inr(emi)}`) +
-        sc(runway >= 6 ? 'pass' : runway >= 3 ? 'warn' : 'fail', 'Runway', runway.toFixed(1) + 'mo', runway >= 6 ? '✓ Safe' : runway >= 3 ? '⚠ Low' : '✗ Critical', `Savings ${inr(c.post_purchase_savings)}`) +
-        sc(dpR < .60 ? 'pass' : dpR < .80 ? 'warn' : 'fail', 'Savings Used', pct(dpR), dpR < .60 ? '✓ Safe' : '⚠ High', `${inr(lastInput?.property?.down_payment_available)} down`) +
-        sc(spass >= 3 ? 'pass' : spass >= 2 ? 'warn' : 'fail', 'Stress Tests', `${spass}/4`, spass >= 3 ? '✓ Resilient' : '✗ Vulnerable', 'Scenarios passed') +
-        sc(v === 'safe' ? (crits === 0 ? 'pass' : 'neutral') : (crits === 0 ? 'pass' : 'fail'), 'Risk Flags', crits.toString(), crits === 0 ? '✓ Clear' : `⚠ ${crits} risks`, 'High severity flags') +
-        sc({ good_value: 'pass', fair: 'pass', overpriced: 'fail' }[pv] || 'neutral', 'Price', inr(r.property_assessment?.price_assessment?.price_per_sqft) + '/sqf', pv.replace('_', ' ').toUpperCase(), 'vs Area Median')
-        + `</div>`;
-
-    // True Cost
+    try {
     if (c.true_total_acquisition_cost) {
         document.getElementById('r-tco').innerHTML = `
-                <table class="dtable">
-                    <tr><td>Base Property Price</td><td>${inr(lastInput?.property?.property_price)}</td></tr>
-                    <tr><td>Taxes & Registration</td><td>${inr((c.total_acquisition_cost || 0) - (lastInput?.property?.property_price || 0))}</td></tr>
-                    <tr><td>Estimated Interiors (12%)</td><td>${inr(c.interiors_estimated_cost)}</td></tr>
-                    <tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--text)">True Upfront Cost</td><td>${inr(c.true_total_acquisition_cost)}</td></tr>
-                    <tr><td>10-Yr Opp. Cost (if invested at 12%)</td><td style="color:var(--yellow)">${inr(c.down_payment_opportunity_cost_10yr)}</td></tr>
-                </table>`;
-    } else { document.getElementById('r-tco').parentElement.style.display = 'none'; }
+            <table class="dtable">
+                <tr><td>Base Property Price</td><td>${inr(lastInput?.property?.property_price)}</td></tr>
+                <tr><td>Taxes & Registration</td><td>${inr((c.total_acquisition_cost || 0) - (lastInput?.property?.property_price || 0))}</td></tr>
+                <tr><td>Estimated Interiors (12%)</td><td>${inr(c.interiors_estimated_cost)}</td></tr>
+                <tr style="border-top:2px solid var(--border);font-weight:700"><td style="color:var(--text)">True Upfront Cost</td><td>${inr(c.true_total_acquisition_cost)}</td></tr>
+                <tr><td>10-Yr Opp. Cost (if invested at 12%)</td><td style="color:var(--yellow)">${inr(c.down_payment_opportunity_cost_10yr)}</td></tr>
+            </table>`;
+    } else {
+        document.getElementById('r-tco').parentElement.style.display = 'none';
+    }
+    } catch(e) { document.getElementById('r-tco').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-tco failed:', e); }
 
-    // Simple sections mapping
-    document.getElementById('r-stress').innerHTML = (r.stress_scenarios || []).map(s => `
+    try { document.getElementById('r-stress').innerHTML = (r.stress_scenarios || []).map(s => `
         <div class="stress-row sc2 ${s.can_survive ? '' : 'fail'}">
             <div class="stress-indicator ${s.can_survive ? 'pass' : 'fail'}"></div>
-            <div class="stress-name">${esc(s.name.replace(/_/g, ' ').toUpperCase())}</div>
+            <div style="flex:1; min-width:0;">
+                <div class="stress-name">${esc(startCase(s.name))}</div>
+                ${(s.name || '').includes('job_loss') ? '<div class="ponr-timeline" id="ponr-container" style="margin-top:10px;"></div>' : ''}
+            </div>
             <div class="stress-key-number">${esc(s.key_number)}</div>
             <div class="stress-badge" style="color:${s.can_survive ? 'var(--green)' : 'var(--red)'}">${s.can_survive ? 'SURVIVES' : 'AT RISK'}</div>
-        </div>`).join('');
-    animateStressCards();
+        </div>`).join('') || renderEmptyState('Stress scenarios are not available yet for this run.'); document.getElementById('r-stress').insertAdjacentHTML('afterbegin', `<div class="bank-email-insight" style="display:block; margin-bottom:18px;">${esc(getStressSummary(r.stress_scenarios || []))}</div>`); animateStressCards(); } catch(e) { document.getElementById('r-stress').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-stress failed:', e); }
 
-    // Path to Safe
+    try {
     if (r.path_to_safe) {
         const ps = document.getElementById('r-path-to-safe');
         ps.style.display = 'block';
-        ps.innerHTML = `<div class="rcard" style="border-color:var(--green);"><div style="font-family:var(--font-mono); font-size:12px; color:var(--green); letter-spacing:1px; margin-bottom:16px;">💡 PATH TO SAFE</div><div style="font-size:14px;color:var(--text); line-height:1.7;">To achieve a SAFE verdict, you must either increase your down payment by <strong style="color:var(--green)">${inr(r.path_to_safe.min_additional_down_payment)}</strong> OR reduce the property price to <strong style="color:var(--green)">${inr(r.path_to_safe.max_viable_property_price)}</strong>. At your current savings rate, gathering this extra down payment will take approx <strong style="color:var(--text)">${r.path_to_safe.months_to_save_at_current_rate.toFixed(1)} months</strong>.</div></div>`;
-    } else { document.getElementById('r-path-to-safe').style.display = 'none'; }
+        ps.innerHTML = `<div class="rcard" style="border-color:var(--green);"><div style="font-family:var(--font-mono); font-size:12px; color:var(--green); letter-spacing:1px; margin-bottom:16px;">Path to Safe</div><div style="font-size:14px;color:var(--text); line-height:1.7;">To achieve a SAFE verdict, you must either increase your down payment by <strong style="color:var(--green)">${inr(r.path_to_safe.additional_down_payment_needed)}</strong> or reduce the property price to <strong style="color:var(--green)">${inr(r.path_to_safe.max_viable_property_price)}</strong>. At your current savings rate, gathering this extra down payment will take approximately <strong style="color:var(--text)">${r.path_to_safe.months_to_save_at_current_rate.toFixed(1)} months</strong>.</div></div>`;
+    } else {
+        document.getElementById('r-path-to-safe').style.display = 'none';
+    }
+    } catch(e) { console.error('r-path-to-safe failed:', e); }
 
-    const pa = r.property_assessment || {};
-    document.getElementById('r-property').innerHTML =
-        `<table class="dtable"><tr><td>Your price/sqft</td><td>${inr(pa.price_assessment?.price_per_sqft)}</td></tr><tr><td>Area median</td><td>${inr(pa.price_assessment?.area_median_per_sqft)}</td></tr></table>` +
-        (pa.property_flags || []).map(f => `<div class="flag ${f.severity}"><span class="flag-sev-text">${f.severity.toUpperCase()}</span><span class="flag-name">${esc(f.flag)}</span> — ${esc(f.detail)}</div>`).join('') +
-        renderOcCcStatus(pa.oc_cc_status);
+    try { const pa = r.property_assessment || {}; document.getElementById('r-property').innerHTML = renderPropertyAssessment(pa); } catch(e) { document.getElementById('r-property').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-property failed:', e); }
 
-    const rvb = r.rent_vs_buy || {};
-    document.getElementById('r-rvb').innerHTML = `<div class="rvb-compare"><div class="rvb-box rent"><div class="rvb-box-label">If You Rent</div><div class="rvb-box-val">${inr(rvb.equivalent_monthly_rent)}</div></div><div class="rvb-box buy"><div class="rvb-box-label">If You Buy</div><div class="rvb-box-val">${inr(rvb.buying_monthly_cost)}</div></div></div><div class="rvb-diff">Break-even is <strong>${(c.rent_vs_buy_break_even_years || 0).toFixed(1)} years</strong>.</div>`;
+    try { const rvb = r.rent_vs_buy || {}; document.getElementById('r-rvb').innerHTML = `<div class="bank-email-insight" style="display:block; margin-bottom:18px;">${(c.rent_vs_buy_break_even_years || 0) > 7 ? 'The break-even is long, so buying only makes sense if you plan to stay and hold through the cycle.' : 'The buy case catches up relatively faster, which improves the ownership story if the rest of the audit also holds.'}</div><div class="rvb-compare"><div class="rvb-box rent"><div class="rvb-box-label">If You Rent</div><div class="rvb-box-val">${inr(rvb.equivalent_monthly_rent)}</div></div><div class="rvb-box buy"><div class="rvb-box-label">If You Buy</div><div class="rvb-box-val">${inr(rvb.buying_monthly_cost)}</div></div></div><div class="rvb-diff">Break-even is <strong>${(c.rent_vs_buy_break_even_years || 0).toFixed(1)} years</strong>.</div>`; } catch(e) { document.getElementById('r-rvb').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-rvb failed:', e); }
 
-    document.getElementById('r-challenges').innerHTML = (r.assumptions_challenged || []).map(ch => `<div class="challenge ${ch.severity}"><div class="ch-top"><span class="sev ${ch.severity}">${ch.severity}</span><span class="ch-assume">${esc(ch.assumption)}</span></div><div class="ch-body">${esc(ch.challenge)}</div></div>`).join('');
-    document.getElementById('r-reasons').innerHTML = (r.top_reasons || []).map(t => `<li>${esc(t)}</li>`).join('');
-    document.getElementById('r-actions').innerHTML = (r.recommended_actions || []).map(a => `<li>${esc(a)}</li>`).join('');
-    document.getElementById('r-reasoning').textContent = r.full_reasoning || '';
-    document.getElementById('r-blind').innerHTML = (r.blind_spots || []).map(b => `<div class="pill">${esc(b)}</div>`).join('');
-    document.getElementById('r-emo').innerHTML = (r.emotional_flags || []).map(f => `<div class="pill" style="border-color:var(--accent-dim);color:#a89cf7">${esc(f)}</div>`).join('');
+    try { document.getElementById('r-challenges').innerHTML = renderAccordionSection(
+        'These are the weak links in the story buyers usually ignore when emotion is already high.',
+        (r.assumptions_challenged || []).map(item => ({
+            title: startCase(item.assumption),
+            summary: item.challenge,
+            details: [
+                { icon: '!', status: startCase(item.severity), zone: item.severity === 'critical' ? 'danger' : item.severity === 'high' ? 'warn' : 'info', text: item.impact || item.challenge },
+                { icon: '?', text: item.challenge }
+            ]
+        })),
+        'No explicit challenged assumptions were returned, which usually means the run found fewer high-confidence contradictions.'
+    ); } catch(e) { document.getElementById('r-challenges').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-challenges failed:', e); }
+    try { document.getElementById('r-reasons').innerHTML = renderAccordionSection(
+        'These are the few points carrying the most weight in the verdict, so treat them as the real decision drivers.',
+        (r.top_reasons || []).map(reason => ({ title: startCase(reason.split('.')[0] || reason), summary: reason, details: [{ icon: '•', text: reason }] })),
+        'Top reasons are still being synthesized for this report.'
+    ); } catch(e) { document.getElementById('r-reasons').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-reasons failed:', e); }
+    try { document.getElementById('r-actions').innerHTML = renderAccordionSection(
+        'The best next move is usually to reduce irreversible risk before negotiating on emotion.',
+        (r.recommended_actions || []).map(action => ({ title: startCase(action.split('.')[0] || action), summary: action, details: [{ icon: '→', text: action }] })),
+        'No action list was returned for this scenario.'
+    ); } catch(e) { document.getElementById('r-actions').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-actions failed:', e); }
+    try { document.getElementById('r-reasoning-insight').innerHTML = `<strong>Read the narrative only after the summary cards.</strong>${esc(getAffordabilitySummary(surplus, emiR, runway))}<div style="margin-top:10px;">This section preserves the full audit, but the summary cards above should do most of the decision work.</div>`; } catch(e) { console.error('r-reasoning-insight failed:', e); }
+    try { document.getElementById('r-reasoning').innerHTML = r.full_reasoning ? `<div class="rcard" style="padding:20px; line-height:1.8;">${esc(r.full_reasoning).replace(/\n/g, '<br>')}</div>` : renderEmptyState('Full reasoning was not included in this response.'); } catch(e) { document.getElementById('r-reasoning').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-reasoning failed:', e); }
+    try { document.getElementById('r-blind').innerHTML = renderAccordionSection(
+        'These are the important gaps in the current decision frame that could distort the final call.',
+        (r.blind_spots || []).map(item => ({ title: startCase(item), summary: item, details: [{ icon: '◌', status: 'Attention', zone: 'warn', text: item }] })),
+        'No blind spots were flagged in this run.'
+    ); } catch(e) { document.getElementById('r-blind').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-blind failed:', e); }
+    try { document.getElementById('r-emo').innerHTML = renderAccordionSection(
+        'Signals that the choice may be driven by urgency, sunk cost, optimism, or confirmation-seeking.',
+        (r.emotional_flags || []).map(item => ({ title: startCase(item), summary: item, details: [{ icon: '⚑', status: 'Bias Risk', zone: 'warn', text: item }] })),
+        'No cognitive or emotional flags were returned.'
+    ); } catch(e) { document.getElementById('r-emo').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-emo failed:', e); }
 
     let covMsg = "";
-    if (r.benchmark_coverage?.coverage_level === "default") {
-        covMsg = `<span style="color:var(--red)">⚠ ${esc(r.benchmark_coverage.warning)}</span> · `;
-    } else if (r.benchmark_coverage?.coverage_level === "partial") {
-        covMsg = `<span style="color:var(--yellow)">⚠ Partial benchmark data</span> · `;
-    }
-
-    document.getElementById('r-meta').innerHTML = `${covMsg}Analysis in ${r._meta?.pipeline_time_seconds || '?'}s · ${(r.data_sources || []).join(' · ')}`;
+    if (r.benchmark_coverage?.coverage_level === "default") covMsg = `<span style="color:var(--red)">⚠ ${esc(r.benchmark_coverage.warning)}</span> · `;
+    else if (r.benchmark_coverage?.coverage_level === "partial") covMsg = `<span style="color:var(--yellow)">⚠ Partial benchmark data</span> · `;
+    document.getElementById('r-meta').innerHTML = `<div class="bank-email-insight" style="display:block; margin-bottom:18px;">Use this metadata to judge how much confidence to place in the output and where you may still need manual verification.</div>${covMsg}Analysis in ${r._meta?.pipeline_time_seconds || '?'}s · ${(r.data_sources || []).join(' · ')}`;
 
     initWhatIf(r);
     initStickySummary(r);
+    setupCashflowInteractions();
+    const jobLossScenario = (r.stress_scenarios || []).find(s => (s.name || '').includes('job_loss'));
+    renderPointOfNoReturn(document.getElementById('ponr-container'), jobLossScenario || { can_survive: runway >= 6, months_before_default: Math.max(Math.round(runway), 0) });
+    requestAnimationFrame(() => drawNetWorthMountain(document.getElementById('mountain-canvas'), c, lastInput));
+    initTimelineScenarios(r, lastInput);
+    setReportPage(0);
 }
 
 // --- WHAT-IF SLIDERS ---
@@ -659,8 +1170,10 @@ function initWhatIf(report) {
 
     document.getElementById('sensitivity-section').style.display = 'block';
     ['wi-dp', 'wi-price', 'wi-tenure'].forEach(id => {
-        document.getElementById(id).addEventListener('input', onWhatIfSlide);
-        document.getElementById(id + '-val').textContent = id === 'wi-tenure' ? document.getElementById(id).value + ' yrs' : inr(+document.getElementById(id).value);
+        const input = document.getElementById(id);
+        input.oninput = onWhatIfSlide;
+        document.getElementById(id + '-val').textContent = id === 'wi-tenure' ? input.value + ' yrs' : inr(+input.value);
+        setSliderVisual(input);
     });
     updateWhatIfDisplay(c, c);
 }
@@ -669,6 +1182,7 @@ function onWhatIfSlide() {
     document.getElementById('wi-dp-val').textContent = inr(+document.getElementById('wi-dp').value);
     document.getElementById('wi-price-val').textContent = inr(+document.getElementById('wi-price').value);
     document.getElementById('wi-tenure-val').textContent = document.getElementById('wi-tenure').value + ' yrs';
+    ['wi-dp', 'wi-price', 'wi-tenure'].forEach(id => setSliderVisual(document.getElementById(id)));
     clearTimeout(whatIfDebounceTimer);
     whatIfDebounceTimer = setTimeout(fetchWhatIf, 400);
 }
@@ -693,10 +1207,22 @@ async function fetchWhatIf() {
 function updateWhatIfDisplay(curr, orig) {
     const hh = (lastInput_cached?.financial?.monthly_income || 0) + (lastInput_cached?.financial?.spouse_income || 0);
     const fixed = (lastInput_cached?.financial?.existing_emis || 0) + (lastInput_cached?.financial?.monthly_expenses || 0);
+    const animateValueChange = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = `<span class="value-ticker">${esc(value)}</span>`;
+        const card = document.querySelector(`[data-output-card="${id}"]`);
+        if (card) {
+            card.classList.remove('updated');
+            requestAnimationFrame(() => {
+                card.classList.add('updated');
+                setTimeout(() => card.classList.remove('updated'), 650);
+            });
+        }
+    };
 
     const setM = (id, cur, ori, fmt, hBetter) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = fmt(cur);
+        animateValueChange(id, fmt(cur));
         const dEl = document.getElementById(id + '-d');
         if (!dEl) return;
         const diff = cur - ori;
@@ -712,7 +1238,7 @@ function updateWhatIfDisplay(curr, orig) {
 
     const ratioEl = document.getElementById('wm-ratio');
     if (ratioEl) {
-        ratioEl.textContent = (curr.emi_to_income_ratio * 100).toFixed(1) + '%';
+        animateValueChange('wm-ratio', (curr.emi_to_income_ratio * 100).toFixed(1) + '%');
         ratioEl.style.color = curr.emi_to_income_ratio < 0.3 ? 'var(--green)' : curr.emi_to_income_ratio < 0.45 ? 'var(--yellow)' : 'var(--red)';
     }
     const rDiff = curr.emi_to_income_ratio - orig.emi_to_income_ratio;
@@ -763,12 +1289,15 @@ function renderComparisonTable(r1, r2) {
     const pv1 = r1.property_assessment?.price_assessment?.premium_over_market_pct || 0;
     const pv2 = r2.property_assessment?.price_assessment?.premium_over_market_pct || 0;
 
+    const surplus1 = Math.max((lastInput?.financial?.monthly_income || 0) + (lastInput?.financial?.spouse_income || 0) - (c1.monthly_ownership_cost || 0) - (lastInput?.financial?.existing_emis || 0) - (lastInput?.financial?.monthly_expenses || 0), 0);
+    const surplus2 = Math.max((lastInput?.financial?.monthly_income || 0) + (lastInput?.financial?.spouse_income || 0) - (c2.monthly_ownership_cost || 0) - (lastInput?.financial?.existing_emis || 0) - (lastInput?.financial?.monthly_expenses || 0), 0);
+
     const rows = [
         { metric: 'Overall Verdict', v1: v1.toUpperCase(), v2: v2.toUpperCase(), better: verdictBetter, isVerdict: true },
         { metric: 'EMI / Income', v1: pct(c1.emi_to_income_ratio), v2: pct(c2.emi_to_income_ratio), better: better(c1.emi_to_income_ratio, c2.emi_to_income_ratio, false) },
         { metric: 'Emergency Runway', v1: (c1.emergency_runway_months || 0).toFixed(1) + ' mo', v2: (c2.emergency_runway_months || 0).toFixed(1) + ' mo', better: better(c1.emergency_runway_months, c2.emergency_runway_months, true) },
         { metric: 'Stress Tests Passed', v1: ss1 + ' / 4', v2: ss2 + ' / 4', better: better(ss1, ss2, true) },
-        { metric: 'Monthly Surplus', v1: inr(c1.monthly_surplus_estimate || 0), v2: inr(c2.monthly_surplus_estimate || 0), better: better(c1.monthly_surplus_estimate, c2.monthly_surplus_estimate, true) },
+        { metric: 'Monthly Surplus', v1: inr(surplus1), v2: inr(surplus2), better: better(surplus1, surplus2, true) },
         { metric: 'Monthly EMI', v1: inr(c1.monthly_emi || 0), v2: inr(c2.monthly_emi || 0), better: better(c1.monthly_emi, c2.monthly_emi, false) },
         { metric: 'Price vs Market', v1: (pv1 >= 0 ? '+' : '') + pv1.toFixed(1) + '%', v2: (pv2 >= 0 ? '+' : '') + pv2.toFixed(1) + '%', better: better(pv1, pv2, false) },
         { metric: 'Rent-vs-Buy Break-Even', v1: (c1.rent_vs_buy_break_even_years || 0).toFixed(1) + ' yrs', v2: (c2.rent_vs_buy_break_even_years || 0).toFixed(1) + ' yrs', better: better(c1.rent_vs_buy_break_even_years, c2.rent_vs_buy_break_even_years, false) },
@@ -846,6 +1375,30 @@ function copyShareUrl() {
     });
 }
 
+function loadDemoScenario() {
+    const fields = {
+        monthly_income: '150000', spouse_income: '80000',
+        liquid_savings: '3500000', existing_emis: '12000',
+        monthly_expenses: '55000', property_price: '12000000',
+        location_area: 'Andheri West', down_payment_available: '2400000',
+        loan_tenure_years: '20', expected_interest_rate: '8.75',
+        employment_type: 'salaried', years_in_current_job: '4',
+        dependents: '1', configuration: '2BHK', carpet_area_sqft: '680',
+        is_ready_to_move: 'false', builder_name: 'Lodha Group',
+        possession_date: '06/2027', buyer_gender: 'male',
+        is_rera_registered: 'true', expected_annual_growth_pct: '8',
+    };
+    Object.entries(fields).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = val;
+        if (el.tagName === 'INPUT') el.dispatchEvent(new Event('input'));
+    });
+    goStep(1);
+    updateFinancialHealth();
+    updateEMIPreview();
+}
+
 function shareWhatsApp() {
     if (!currentShareUrl || !lastReport) return;
     const verdict = (lastReport.verdict || 'risky').toUpperCase();
@@ -856,13 +1409,17 @@ function shareWhatsApp() {
     const emiStr = emi ? inr(Math.round(emi)) + '/month EMI' : '';
     const reason = lastReport.verdict_reason || '';
     const msg = [
-        `I used Niv AI to analyze ${priceStr} in ${location}.`,
+        `*NIV AI Property Analysis*`,
         ``,
-        `Verdict: *${verdict}*`,
+        `Property: ${priceStr} in ${location}`,
+        `Verdict: *${verdict}* (${lastReport.confidence_score}/10 confidence)`,
         emiStr ? `Monthly EMI: ${emiStr}` : '',
-        reason ? reason.substring(0, 120) + (reason.length > 120 ? '...' : '') : '',
+        reason ? `Reason: ${reason.substring(0, 100)}` : '',
         ``,
-        `Full analysis: ${currentShareUrl}`
+        `AI Integrity Score: ${lastReport.bias_detection?.integrity_score || '?'}/100`,
+        ``,
+        `Full analysis → ${currentShareUrl}`,
+        `_(Analyzed by NIV AI — unbiased home buying intelligence)_`
     ].filter(Boolean).join('\n');
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener,noreferrer');
 }
@@ -1003,6 +1560,9 @@ async function submitOutcome(outcome, btn) {
 function reset() {
     document.getElementById('report-view').style.display = 'none';
     document.getElementById('form-section').style.display = 'block';
+    document.getElementById('bank-email-modal').style.display = 'none';
+    document.getElementById('friction-gate').style.display = 'none';
+    document.body.classList.remove('report-visible');
     ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(id => setA(id, 'waiting'));
     window.scrollTo(0, 0);
 }
@@ -1047,25 +1607,37 @@ async function downloadCounterOffer() {
 let bankEmailContent = null;
 
 function openBankEmailModal() {
+    bankEmailReturnPage = reportPageIndex;
     document.getElementById('bank-email-modal').style.display = 'flex';
     document.getElementById('bank-email-content').style.display = 'none';
     document.getElementById('bank-email-loading').style.display = 'none';
     document.getElementById('bank-email-error').style.display = 'none';
     document.getElementById('bank-email-actions').style.display = 'flex';
+    document.getElementById('bank-email-insight').style.display = 'none';
+    document.getElementById('bank-email-insight').textContent = '';
+    document.getElementById('bank-email-preview').innerHTML = '';
+    document.getElementById('bank-email-preview-note').textContent = 'Structured for clarity and ready to customize before sending.';
+    document.getElementById('bank-email-copy-btn').disabled = true;
+    document.getElementById('bank-email-mailto-btn').disabled = true;
     bankEmailContent = null;
 }
 
 function closeBankEmail() {
     document.getElementById('bank-email-modal').style.display = 'none';
+    setReportPage(bankEmailReturnPage);
 }
 
 async function generateBankEmail() {
     if (!lastReport || !lastInput) return;
     const bank = document.getElementById('target-bank').value;
+    const generateBtn = document.getElementById('bank-email-generate-btn');
     document.getElementById('bank-email-loading').style.display = 'block';
     document.getElementById('bank-email-content').style.display = 'none';
     document.getElementById('bank-email-error').style.display = 'none';
-    document.getElementById('bank-email-actions').style.display = 'none';
+    document.getElementById('bank-email-insight').style.display = 'none';
+    document.getElementById('bank-email-insight').textContent = '';
+    document.getElementById('bank-email-preview').innerHTML = '';
+    generateBtn.disabled = true;
     try {
         const res = await fetch(`${API}/api/v1/tools/bank-email`, {
             method: 'POST',
@@ -1079,24 +1651,27 @@ async function generateBankEmail() {
         if (!res.ok) throw new Error('Email generation failed');
         const data = await res.json();
         bankEmailContent = data.full_email_text || '';
-        document.getElementById('bank-email-preview').textContent = bankEmailContent;
+        document.getElementById('bank-email-preview').innerHTML = formatEmailDraftPreview(bankEmailContent);
         document.getElementById('bank-email-loading').style.display = 'none';
         document.getElementById('bank-email-content').style.display = 'block';
-        // Show FOIR info
+        document.getElementById('bank-email-copy-btn').disabled = !bankEmailContent;
+        document.getElementById('bank-email-mailto-btn').disabled = !bankEmailContent;
+        document.getElementById('bank-email-preview-note').textContent = `${bank} draft based on the current report. Review names, phone number, and numbers before sending.`;
         if (data.foir_pct) {
-            const fColor = data.foir_pct < 40 ? 'var(--green)' : data.foir_pct < 50 ? 'var(--yellow)' : 'var(--red)';
-            document.getElementById('bank-email-preview').insertAdjacentHTML('beforebegin',
-                `<div style="font-size:11px;color:${fColor};margin-bottom:8px;padding:6px 10px;
-                 background:var(--bg);border-radius:6px;border-left:2px solid ${fColor}">
-                 FOIR: ${data.foir_pct}% ${data.foir_pct < 40 ? '✓ Good' : data.foir_pct < 50 ? '⚠ Borderline' : '✗ High'}
-                 — banks prefer FOIR below 40%</div>`
-            );
+            const insight = document.getElementById('bank-email-insight');
+            insight.style.display = 'block';
+            insight.style.color = data.foir_pct < 40 ? 'var(--green)' : data.foir_pct < 50 ? 'var(--yellow)' : 'var(--red)';
+            insight.style.borderLeftColor = data.foir_pct < 40 ? 'var(--green)' : data.foir_pct < 50 ? 'var(--yellow)' : 'var(--red)';
+            insight.textContent = `FOIR ${data.foir_pct}% — ${data.foir_pct < 40 ? 'comfortably bank-friendly' : data.foir_pct < 50 ? 'borderline for many banks' : 'high for standard bank comfort'}.`;
         }
     } catch (e) {
         document.getElementById('bank-email-loading').style.display = 'none';
         document.getElementById('bank-email-error').style.display = 'block';
         document.getElementById('bank-email-error').textContent = 'Failed to generate email: ' + e.message;
-        document.getElementById('bank-email-actions').style.display = 'flex';
+        document.getElementById('bank-email-copy-btn').disabled = true;
+        document.getElementById('bank-email-mailto-btn').disabled = true;
+    } finally {
+        generateBtn.disabled = false;
     }
 }
 
@@ -1105,7 +1680,7 @@ function copyBankEmail() {
     navigator.clipboard.writeText(bankEmailContent).then(() => {
         const btn = document.getElementById('bank-email-copy-btn');
         btn.textContent = '✓ Copied!';
-        setTimeout(() => btn.textContent = 'Copy Email', 2000);
+        setTimeout(() => btn.textContent = 'Copy Draft', 2000);
     });
 }
 
@@ -1261,12 +1836,7 @@ async function uploadLoanLetter(input) {
                         ${d.processing_fee ? `<tr><td style="color:var(--yellow);padding:2px 0">Processing Fee</td><td style="color:var(--yellow);text-align:right">${inr(d.processing_fee)}</td></tr>` : ''}
                         ${(d.hidden_charges || []).length > 0 ? `<tr><td colspan="2" style="color:var(--red);padding:4px 0;font-size:10px">⚠ Hidden charges: ${d.hidden_charges.map(h => esc(h)).join(' · ')}</td></tr>` : ''}
                     </table>
-                    ${hasAutoFill ? `<button onclick="applyLoanAutoFill(${JSON.stringify(d.auto_fill || {}).replace(/"/g, '&quot;')})"
-                        style="margin-top:10px;width:100%;padding:8px;background:var(--accent-dim);
-                        border:1px solid var(--accent);border-radius:6px;color:var(--accent);
-                        font-size:11px;cursor:pointer">
-                        Apply to Form →
-                    </button>` : ''}
+                    ${hasAutoFill ? (() => { const autoFillId = 'af_' + Date.now() + '_' + Math.random().toString(36).slice(2); window[autoFillId] = d.auto_fill || {}; return `<button onclick="applyLoanAutoFill(window['${autoFillId}'])" style="margin-top:10px;width:100%;padding:8px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer">Apply to Form →</button>`; })() : ''}
                     ${d.sanctioned_amount && lastInput?.property?.property_price ?
                         `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">
                         Down Payment Needed: ${inr(Math.max(0, lastInput.property.property_price - d.sanctioned_amount))}
@@ -1648,6 +2218,13 @@ async function initTimelineScenarios(report, rawInput) {
     results.forEach((r, i) => {
       if (r && r.emi_to_income_ratio < bestRatio) { bestRatio = r.emi_to_income_ratio; bestIdx = i; }
     });
+    const best = results[bestIdx];
+    const summaryEl = document.getElementById('timeline-summary');
+    if (summaryEl && best) {
+      const runwayLift = Math.max((results[2]?.emergency_runway_months || 0) - (results[0]?.emergency_runway_months || 0), 0);
+      const equityCost = Math.max((scenarios[2].price || 0) - (scenarios[0].price || 0), 0);
+      summaryEl.textContent = `Waiting 1 year could improve runway by ${runwayLift.toFixed(1)} months, but may cost about ${inr(equityCost)} more if prices rise as assumed.`;
+    }
     scenarios.forEach((s, i) => {
       const el = document.getElementById(s.id + '-metrics');
       const track = document.getElementById(s.id);
@@ -1655,14 +2232,13 @@ async function initTimelineScenarios(report, rawInput) {
       const r = results[i];
       const zone = r.emi_to_income_ratio < 0.3 ? 'var(--green)' : r.emi_to_income_ratio < 0.45 ? 'var(--yellow)' : 'var(--red)';
       el.innerHTML = `
-        <div style="font-family:var(--font-mono);margin-bottom:8px">
-          <div style="font-size:20px;color:${zone}">${(r.emi_to_income_ratio * 100).toFixed(1)}%</div>
-          <div style="font-size:10px;color:var(--text-muted)">EMI / INCOME</div>
-        </div>
-        <div style="font-size:12px;color:var(--text-dim)">${r.emergency_runway_months?.toFixed(1)} mo runway</div>
-        <div style="font-size:12px;color:var(--text-dim)">${inr(r.monthly_emi)} /mo</div>
-        ${i === bestIdx ? '<div style="font-size:10px;font-weight:700;color:var(--accent);margin-top:6px">★ BEST OPTION</div>' : ''}`;
-      if (i === bestIdx && track) track.classList.add('recommended');
+        <div class="timeline-main" style="color:${zone}">${(r.emi_to_income_ratio * 100).toFixed(1)}%</div>
+        <div class="metric-label">EMI / Income</div>
+        <div class="timeline-meta">${r.emergency_runway_months?.toFixed(1)} months runway</div>
+        <div class="timeline-meta">${inr(r.monthly_emi)} / month EMI</div>
+        <div class="timeline-meta">${inr(s.price)} projected price</div>
+        ${i === bestIdx ? '<div class="timeline-reco">Recommended</div>' : ''}`;
+      if (track) track.classList.toggle('recommended', i === bestIdx);
     });
     container.style.display = 'block';
   } catch (e) { console.warn('Timeline scenarios failed:', e); }
@@ -1677,6 +2253,11 @@ function drawNetWorthMountain(canvas, computed, rawInput) {
   if (!canvas) return;
   canvas.width = canvas.offsetWidth || 600;
   const ctx = canvas.getContext('2d');
+  const styles = getComputedStyle(document.documentElement);
+  const bgColor = styles.getPropertyValue('--surface').trim() || '#ffffff';
+  const gridColor = styles.getPropertyValue('--border').trim() || '#e5e7eb';
+  const accentColor = styles.getPropertyValue('--yellow').trim() || '#ca8a04';
+  const mutedColor = styles.getPropertyValue('--text-muted').trim() || '#9ca3af';
   const W = canvas.width, H = canvas.height || 200;
   const fin = rawInput?.financial || {};
   const prop = rawInput?.property || {};
@@ -1695,9 +2276,9 @@ function drawNetWorthMountain(canvas, computed, rawInput) {
   const pad = 30;
   function toX(y) { return pad + (y / years) * (W - pad * 2); }
   function toY(v) { return H - pad - ((v - minV) / (maxV - minV || 1)) * (H - pad * 2); }
-  ctx.fillStyle = '#080810';
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.strokeStyle = gridColor;
   for (let i = 0; i <= 5; i++) {
     ctx.beginPath();
     ctx.moveTo(pad, pad + i * (H - pad * 2) / 5);
@@ -1705,6 +2286,13 @@ function drawNetWorthMountain(canvas, computed, rawInput) {
     ctx.stroke();
   }
   const propPts = Array.from({ length: years + 1 }, (_, y) => (prop.property_price || 0) * Math.pow(1.04, y));
+  const legend = document.getElementById('mountain-legend');
+  if (legend) {
+    legend.innerHTML = `
+      <span style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:999px;background:${accentColor};display:inline-block"></span>Projected net worth</span>
+      <span style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:2px;background:rgba(124,106,247,0.45);display:inline-block"></span>Property value trend</span>
+    `;
+  }
   ctx.beginPath(); ctx.strokeStyle = 'rgba(124,106,247,0.3)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
   propPts.forEach((v, y) => y === 0 ? ctx.moveTo(toX(y), toY(v)) : ctx.lineTo(toX(y), toY(v)));
   ctx.stroke(); ctx.setLineDash([]);
@@ -1717,17 +2305,17 @@ function drawNetWorthMountain(canvas, computed, rawInput) {
   let prog = 0;
   const animate = setInterval(() => {
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#080810'; ctx.fillRect(0, 0, W, H);
-    ctx.beginPath(); ctx.strokeStyle = 'var(--accent)'; ctx.lineWidth = 2.5; ctx.setLineDash([]);
+    ctx.fillStyle = bgColor; ctx.fillRect(0, 0, W, H);
+    ctx.beginPath(); ctx.strokeStyle = accentColor; ctx.lineWidth = 2.5; ctx.setLineDash([]);
     pts.slice(0, Math.ceil(prog) + 1).forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
     ctx.stroke();
     prog = Math.min(prog + 0.15, years);
     if (prog >= years) {
       clearInterval(animate);
-      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `10px 'DM Mono'`;
+      ctx.fillStyle = mutedColor; ctx.font = `10px 'DM Mono'`;
       ctx.fillText('Year 0', toX(0) - 10, H - 8);
       ctx.fillText('Year 10', toX(10) - 20, H - 8);
-      ctx.fillStyle = 'var(--accent)';
+      ctx.fillStyle = accentColor;
       ctx.fillText(inr(pts[years]), toX(years) - 30, toY(pts[years]) - 8);
     }
   }, 1200 / years / 8);
@@ -1930,11 +2518,12 @@ function updateAnalysisProgress() {
     }).length;
     const pct = Math.round(done / agentIds.length * 100);
     const subEl = document.querySelector('.load-sub');
-    if (subEl) {
-      subEl.textContent = pct < 100
-        ? `Analysis ${pct}% complete — ${agentIds.length - done} agents remaining`
+    if (!subEl) return;
+    const agentNames = ['Context', 'Financial + Property', 'Risk', 'Assumptions', 'Decision'];
+    const stageIdx = Math.min(Math.floor((done / agentIds.length) * agentNames.length), agentNames.length - 1);
+    subEl.textContent = pct < 100
+        ? `${pct}% complete · Running: ${agentNames[stageIdx]}`
         : 'Composing your verdict...';
-    }
     if (done === agentIds.length) clearInterval(interval);
   }, 400);
 }
@@ -1967,9 +2556,33 @@ function initStickySummary(report) {
   }, { threshold: 0.1 }).observe(verdictEl);
 }
 
+function initDocumentDropzones() {
+  document.querySelectorAll('.doc-upload-zone').forEach(zone => {
+    const input = zone.querySelector('input[type="file"]');
+    if (!input) return;
+    ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, e => {
+      e.preventDefault();
+      zone.classList.add('drag-active');
+    }));
+    ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, e => {
+      e.preventDefault();
+      zone.classList.remove('drag-active');
+    }));
+    zone.addEventListener('drop', e => {
+      const files = e.dataTransfer?.files;
+      if (!files || !files.length) return;
+      input.files = files;
+      if (input.id === 'ec-file') uploadEC(input);
+      if (input.id === 'loan-file') uploadLoanLetter(input);
+    });
+  });
+}
+
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', () => {
     updateFinancialHealth();
+    updateEMIPreview();
+    initDocumentDropzones();
 
     // Setup Indian number formatting on financial inputs
     ['monthly_income', 'spouse_income', 'liquid_savings', 'existing_emis',
@@ -1993,11 +2606,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el && !el.value) el.value = val;
     });
 
+    [
+        ['monthly_income', 'inc-p'],
+        ['spouse_income', 'sp-p'],
+        ['liquid_savings', 'sav-p'],
+        ['property_price', 'pp-p'],
+        ['down_payment_available', 'dp-p'],
+    ].forEach(([fieldId, previewId]) => {
+        const el = document.getElementById(fieldId);
+        if (el) preview(el, previewId);
+    });
+
     if (window.__NIV_PRELOADED_REPORT__) {
         lastReport = window.__NIV_PRELOADED_REPORT__;
         document.getElementById('form-section').style.display = 'none';
         renderReport(lastReport);
         document.getElementById('report-view').style.display = 'block';
+        document.body.classList.add('report-visible');
+        setReportPage(0);
 
         if (window.__NIV_SHARED_MODE__) {
             const banner = document.createElement('div');

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from backend.llm.client import LLMClient
 from backend.utils.sanitize import wrap_user_content
+from backend.utils.prompting import apply_bias_hardening
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ Respond ONLY with JSON:
   "red_flags": ["<flag>"],
   "reasoning": "<2-3 paragraph analysis>"
 }"""
+SYSTEM_PROMPT = apply_bias_hardening(SYSTEM_PROMPT)
 
 
 async def run(llm: LLMClient, context: dict, computed_numbers: dict, raw_input: dict) -> dict:

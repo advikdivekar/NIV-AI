@@ -9,7 +9,10 @@ regardless of WHATSAPP_ENABLED to prevent Meta from disabling the webhook.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
+import os
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, Response
 
@@ -17,6 +20,19 @@ from backend.integrations.whatsapp_bot import VERIFY_TOKEN, handle_incoming_mess
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
+
+WHATSAPP_APP_SECRET = os.getenv("WHATSAPP_APP_SECRET", "")
+
+
+def _verify_meta_signature(body: bytes, signature_header: str) -> bool:
+    if not WHATSAPP_APP_SECRET:
+        return True  # Skip validation if secret not configured (dev mode)
+    if not signature_header or not signature_header.startswith("sha256="):
+        return False
+    expected = "sha256=" + hmac.HMAC(
+        WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
 
 
 @router.get("/whatsapp/webhook", include_in_schema=True)
@@ -57,6 +73,11 @@ async def receive_message(request: Request, background_tasks: BackgroundTasks):
         Always {"status": "ok"} — Meta retries on non-200 responses.
     """
     try:
+        raw_body = await request.body()
+        sig = request.headers.get("X-Hub-Signature-256", "")
+        if not _verify_meta_signature(raw_body, sig):
+            logger.warning("WhatsApp webhook signature mismatch — request rejected")
+            return {"status": "ok"}  # Always 200 to Meta, but process nothing
         payload = await request.json()
         entry = payload.get("entry", [])
         for e in entry:

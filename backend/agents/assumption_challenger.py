@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from backend.llm.client import LLMClient
 from backend.utils.sanitize import wrap_user_content
+from backend.utils.prompting import apply_bias_hardening
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ GOOD example:
 
 severity: "critical" (alone causes distress), "high" (materially changes decision), "medium" (plan for it), "low" (minor)
 Generate 3-5 challenges focused on FUTURE risks, market risks, and external factors — NOT things the user already told us.
+FAIRNESS RULE: Do not invent risk from gender, family status, community, or any non-financial identity trait. Missing evidence is uncertainty, not proof of danger.
 
 Respond ONLY with JSON:
 {
@@ -33,6 +35,7 @@ Respond ONLY with JSON:
   "emotional_flags": ["<bias detected>"],
   "reasoning": "<2-3 paragraphs>"
 }"""
+SYSTEM_PROMPT = apply_bias_hardening(SYSTEM_PROMPT)
 
 
 async def run(llm: LLMClient, context: dict, financial_analysis: dict, risk_analysis: dict,

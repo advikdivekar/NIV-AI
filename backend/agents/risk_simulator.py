@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from backend.llm.client import LLMClient
 from backend.utils.sanitize import wrap_user_content
+from backend.utils.prompting import apply_bias_hardening
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,7 @@ Respond ONLY with JSON:
   "critical_vulnerability": "<single biggest risk>",
   "reasoning": "<2-3 paragraphs>"
 }"""
+SYSTEM_PROMPT = apply_bias_hardening(SYSTEM_PROMPT)
 
 
 async def run(llm: LLMClient, context: dict, financial_analysis: dict, computed_numbers: dict,
@@ -39,7 +41,19 @@ Buyer: {wrap_user_content(fin["employment_type"])}, {fin["years_in_current_job"]
 Affordability verdict: {financial_analysis.get("affordability_verdict")}
 Scenarios (numbers are exact):{scenario_text}
 Red flags: {financial_analysis.get("red_flags", [])}"""
+    raw = None
+    if hasattr(llm, 'run_with_search_grounding') and getattr(llm, '_gemini_model', None):
+        try:
+            grounded = await llm.run_with_search_grounding(SYSTEM_PROMPT, msg)
+            if grounded:
+                result = llm.parse_json(grounded)
+                result["data_enriched_by_search"] = True
+                logger.info("Risk simulator used Gemini search grounding")
+                return result
+        except Exception as exc:
+            logger.debug("Search grounding failed, using standard: %s", exc)
     raw = await llm.run_agent(SYSTEM_PROMPT, msg)
     result = llm.parse_json(raw)
+    result.setdefault("data_enriched_by_search", False)
     logger.info("Risk simulator complete — resilience: %s", result.get("overall_resilience"))
     return result

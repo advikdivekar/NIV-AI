@@ -27,6 +27,14 @@ logger = logging.getLogger(__name__)
 
 
 async def run_analysis(raw_input: dict) -> dict:
+    try:
+        return await asyncio.wait_for(_run_analysis_internal(raw_input), timeout=120.0)
+    except asyncio.TimeoutError:
+        logger.error("Pipeline timed out after 120s")
+        raise RuntimeError("Analysis timed out. Please try again.")
+
+
+async def _run_analysis_internal(raw_input: dict) -> dict:
     start = time.perf_counter()
     llm = LLMClient()
     fin = raw_input["financial"]
@@ -101,6 +109,7 @@ async def run_analysis(raw_input: dict) -> dict:
     verdict = await decision_composer.run(
         llm, context, financial, risk, property_result, assumptions, computed_dict, raw_input,
         output_language=output_language)
+    final_llm_metadata = llm.get_last_call_metadata()
     logger.debug("Agent 6 (Decision Composer) done in %.2fs, total %.2fs",
                  time.perf_counter() - t6, time.perf_counter() - start)
 
@@ -173,11 +182,20 @@ async def run_analysis(raw_input: dict) -> dict:
         "bias_detection": bias_result,
         "risk_evaluation": risk_eval,
         "action_plan": action_plan,
-        "data_sources": ["Mumbai benchmark data Q4 2025", "Indian income tax rules (80C, 24b)",
-                         "Maharashtra stamp duty rates", "RBI home loan guidelines"],
+        "data_sources": [
+            "Mumbai micro-market benchmarks (NIV AI Q4 2025 database)",
+            "RBI Master Circular — Housing Finance (2024)",
+            "Maharashtra Stamp Duty & Registration Act",
+            "Income Tax Act Sections 80C and 24(b)",
+            "RERA Maharashtra Public Portal",
+        ],
         "limitations": ["Legal title not verified", "Builder financials not assessed",
                         "Physical inspection not done", "Bank eligibility may differ",
                         "Benchmark data may lag market by 1-2 quarters"],
         "disclaimer": "This analysis is for informational purposes only. Not financial advice.",
-        "_meta": {"pipeline_time_seconds": round(time.perf_counter() - start, 2)}
+        "_meta": {
+            "pipeline_time_seconds": round(time.perf_counter() - start, 2),
+            "final_llm": final_llm_metadata,
+            "original_llm_verdict": verdict.get("verdict", "risky"),
+        }
     }

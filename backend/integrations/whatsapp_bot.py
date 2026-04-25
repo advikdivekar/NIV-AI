@@ -531,7 +531,7 @@ async def handle_incoming_message(phone: str, message_text: str) -> None:
 
                 # Save to Firestore and get share URL
                 from backend.firebase import firestore as fs
-                report_id = await fs.save_report(report, raw_input, "whatsapp_bot")
+                report_id = await fs.save_report("whatsapp_bot", report, raw_input)
                 share_url = f"https://niv.ai/report/{report_id}" if report_id else "niv.ai"
 
                 verdict_msg = format_verdict_message(report, share_url)

@@ -172,7 +172,8 @@ async def analyze(request: Request, body: AnalysisRequest):
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=f"Service unavailable: {e}")
+        logger.warning("Analysis unavailable: %s", e)
+        raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         logger.error("Unexpected error: %s\n%s", e, traceback.format_exc())
         raise HTTPException(status_code=500, detail="Unexpected error. Please try again.")
@@ -301,22 +302,31 @@ async def calculate(
 # ---------------------------------------------------------------------------
 
 @router.get("/market/rates")
-async def get_market_rates():
+async def get_market_rates(user_rate: Optional[float] = None):
     """
     Returns current home loan market rates.
 
     Attempts to read from backend/data/market_rates.json.
     If that file is older than 24 hours or missing, returns hardcoded fallback.
     Never makes external HTTP calls — response is always under 50ms.
+    If user_rate provided, also returns a rate_warning field.
     """
     try:
         if _MARKET_RATES_PATH.exists():
             age_seconds = time.time() - _MARKET_RATES_PATH.stat().st_mtime
             if age_seconds < 86400:
-                return json.loads(_MARKET_RATES_PATH.read_text())
+                rates = json.loads(_MARKET_RATES_PATH.read_text())
+                if user_rate is not None:
+                    floor = rates.get("min_rate", rates.get("market_floor", 8.5))
+                    rates["rate_warning"] = "above_market" if user_rate > floor + 0.5 else None
+                return rates
     except Exception:
         pass
-    return _MARKET_RATES_FALLBACK
+    result = dict(_MARKET_RATES_FALLBACK)
+    if user_rate is not None:
+        floor = result.get("min_rate", 8.5)
+        result["rate_warning"] = "above_market" if user_rate > floor + 0.5 else None
+    return result
 
 
 # ---------------------------------------------------------------------------

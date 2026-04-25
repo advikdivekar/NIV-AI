@@ -1,5 +1,5 @@
 """
-Visual property inspection using Gemini 1.5 Pro multimodal.
+Visual property inspection using Gemini multimodal.
 
 Users photograph the property (rooms, exterior, structural elements).
 Gemini analyzes images and returns a structured condition report with
@@ -61,17 +61,18 @@ async def inspect_property_images(
 
     Returns:
         PropertyInspectionResult. Returns unavailable result if
-        Gemini multimodal not configured or all images fail.
+        multimodal analysis not configured or all images fail.
     """
     if not hasattr(llm, "run_document_analysis") or not image_files:
         return _unavailable_result()
 
-    location = property_context.get("location_area", "Mumbai")
-    config = property_context.get("configuration", "2BHK")
+    from backend.utils.sanitize import wrap_user_content
+    location = wrap_user_content(property_context.get("location_area", "Mumbai"), "location")
+    config = wrap_user_content(property_context.get("configuration", "2BHK"), "config")
 
     prompt = (
-        f"You are a structural engineer inspecting a {config} apartment "
-        f"in {location}, India. Analyze this property photograph. "
+        f"You are a structural engineer. Inspect the property photograph. "
+        f"Context — location: {location}, configuration: {config}. "
         f"Identify visible defects, water damage, structural concerns, "
         f"and positive features. "
         f"Return ONLY JSON with: "

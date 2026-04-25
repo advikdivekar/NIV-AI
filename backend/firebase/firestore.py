@@ -34,6 +34,12 @@ def _init():
     _initialized = True
 
 
+def _get_db():
+    """Return the Firestore client (or None if not configured)."""
+    _init()
+    return _db
+
+
 async def save_report(user_id: str, report: dict, raw_input: dict) -> Optional[str]:
     _init()
     if _db is None:

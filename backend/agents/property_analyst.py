@@ -8,6 +8,7 @@ from backend.calculations.legal_flags import assess_oc_cc_status
 from backend.integrations.rera_client import fetch_rera_data
 from backend.llm.client import LLMClient
 from backend.utils.sanitize import wrap_user_content
+from backend.utils.prompting import apply_bias_hardening
 
 _RERA_ENABLED = os.getenv("RERA_LOOKUP_ENABLED", "false").lower() == "true"
 
@@ -37,7 +38,7 @@ async def run(llm: LLMClient, context: dict, computed_numbers: dict, raw_input: 
 
     Optionally performs a MahaRERA lookup for the builder when RERA_LOOKUP_ENABLED=true.
     Attempts Gemini search grounding for live Mumbai micro-market data before falling
-    back to standard Groq inference.
+    back to the shared provider router.
 
     Args:
         llm: LLM client instance.
@@ -88,25 +89,26 @@ Ready: {prop["is_ready_to_move"]}, RERA: {rera}, Builder: {wrap_user_content(pro
 Monthly ownership cost: Rs.{computed_numbers["monthly_ownership_cost"]:,.0f}, Rent-vs-buy premium: {computed_numbers["rent_vs_buy_premium_pct"]:.0f}%, Break-even: {computed_numbers["rent_vs_buy_break_even_years"]:.1f}yrs
 BENCHMARK: {bench_text}{rera_context}"""
 
+    system_prompt = apply_bias_hardening(SYSTEM_PROMPT)
     result: dict = {}
     if hasattr(llm, 'run_with_search_grounding') and llm._gemini_model:
         try:
             grounded = await llm.run_with_search_grounding(
-                SYSTEM_PROMPT, msg, location_area=prop["location_area"]
+                system_prompt, msg, location_area=prop["location_area"]
             )
             if grounded:
                 result = llm.parse_json(grounded)
                 result["data_enriched_by_search"] = True
                 logger.info("Property analyst used Gemini search grounding")
             else:
-                raw = await llm.run_agent(SYSTEM_PROMPT, msg)
+                raw = await llm.run_agent(system_prompt, msg)
                 result = llm.parse_json(raw)
         except Exception as exc:
             logger.debug("Search grounding failed, using standard: %s", exc)
-            raw = await llm.run_agent(SYSTEM_PROMPT, msg)
+            raw = await llm.run_agent(system_prompt, msg)
             result = llm.parse_json(raw)
     else:
-        raw = await llm.run_agent(SYSTEM_PROMPT, msg)
+        raw = await llm.run_agent(system_prompt, msg)
         result = llm.parse_json(raw)
 
     result.setdefault("data_enriched_by_search", False)

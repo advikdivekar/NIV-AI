@@ -76,7 +76,7 @@ async def analyze_ec_multimodal(
     property_details: dict,
 ) -> Optional[dict]:
     """
-    Uses Gemini 1.5 Pro multimodal to analyze EC PDF directly from bytes.
+    Uses Gemini multimodal to analyze EC PDF directly from bytes.
     Processes visual layout, table structures, stamps, and handwritten
     annotations that OCR-based extraction misses.
 
@@ -94,12 +94,14 @@ async def analyze_ec_multimodal(
     if not hasattr(llm, 'run_document_analysis'):
         return None
 
-    location = property_details.get('location_area', 'Unknown')
+    from backend.utils.sanitize import wrap_user_content
+    location_raw = property_details.get('location_area', 'Unknown')
     price = property_details.get('property_price', 0)
+    location = wrap_user_content(str(location_raw), "property_location")
 
     prompt = (
-        f"Analyze this Encumbrance Certificate for a property in "
-        f"{location}, priced at Rs.{price:,.0f}. "
+        f"Analyze this Encumbrance Certificate for a property. "
+        f"Location context: {location}. Price: Rs.{price:,.0f}. "
         f"Identify all mortgages and charges with lender names and amounts, "
         f"court orders or legal attachments, title chain gaps, ownership disputes. "
         f"Return ONLY JSON with keys: has_encumbrances (bool), "
@@ -126,8 +128,8 @@ async def analyze_ec(
     pdf_bytes: Optional[bytes] = None,
 ) -> dict:
     """
-    Analyzes an Encumbrance Certificate. Tries Gemini 1.5 Pro multimodal first
-    when raw bytes are available, then falls back to text-based Groq analysis.
+    Analyzes an Encumbrance Certificate. Tries Gemini multimodal first
+    when raw bytes are available, then falls back to text-based provider routing.
 
     Args:
         llm: LLM client instance.

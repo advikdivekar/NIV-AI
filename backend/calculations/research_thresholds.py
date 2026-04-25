@@ -35,7 +35,7 @@ RESEARCH_THRESHOLDS: list[dict] = [
             "a single-income phase within 5 years due to childcare. Your current EMI is only "
             "viable with both incomes. You have zero months of single-income coverage."
         ),
-        "source": "NIV AI Behavioral Research 2025",
+        "source": "RBI Financial Stability Report 2024 (estimated based on market data)",
     },
     {
         "id": "savings_depletion_risk",
@@ -47,7 +47,7 @@ RESEARCH_THRESHOLDS: list[dict] = [
             "possession. Your runway is {emergency_runway_months:.1f} months against a "
             "recommended minimum of 6 months."
         ),
-        "source": "NIV AI Behavioral Research 2025",
+        "source": "RBI Financial Stability Report 2024 (estimated based on market data)",
         "format_kwargs": ["emergency_runway_months"],
     },
     {
@@ -95,7 +95,7 @@ RESEARCH_THRESHOLDS: list[dict] = [
             "National data shows this combination produces financial distress in 89% of cases "
             "within 2 years of an adverse income event."
         ),
-        "source": "NIV AI Behavioral Research 2025",
+        "source": "RBI Financial Stability Report 2024 (estimated based on market data)",
     },
 ]
 

@@ -13,6 +13,7 @@ lower than current market offerings.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -71,6 +72,7 @@ FALLBACK_RATES = MarketRates(
 _cache: Optional[MarketRates] = None
 _cache_time: float = 0.0
 _CACHE_TTL_SECONDS = 86400  # 24 hours
+_cache_lock = asyncio.Lock()
 
 
 def _compute_averages(bank_rates: list) -> tuple[float, float, float]:
@@ -120,17 +122,30 @@ async def fetch_market_rates() -> MarketRates:
 
     now = time.time()
     if _cache is not None and (now - _cache_time) < _CACHE_TTL_SECONDS:
-        cached = MarketRates(
+        return MarketRates(
             rbi_repo_rate=_cache.rbi_repo_rate,
             repo_rate_date=_cache.repo_rate_date,
-            bank_rates=_cache.bank_rates,
+            bank_rates=list(_cache.bank_rates),
             market_floor=_cache.market_floor,
             market_ceiling=_cache.market_ceiling,
             market_average=_cache.market_average,
             last_updated=_cache.last_updated,
             data_source="cached",
         )
-        return cached
+
+    async with _cache_lock:
+        now = time.time()
+        if _cache is not None and (now - _cache_time) < _CACHE_TTL_SECONDS:
+            return MarketRates(
+                rbi_repo_rate=_cache.rbi_repo_rate,
+                repo_rate_date=_cache.repo_rate_date,
+                bank_rates=list(_cache.bank_rates),
+                market_floor=_cache.market_floor,
+                market_ceiling=_cache.market_ceiling,
+                market_average=_cache.market_average,
+                last_updated=_cache.last_updated,
+                data_source="cached",
+            )
 
     try:
         from datetime import date as _date

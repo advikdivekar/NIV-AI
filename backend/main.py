@@ -47,10 +47,13 @@ async def _custom_rate_limit_handler(request: Request, exc: RateLimitExceeded) -
 
 app.add_exception_handler(RateLimitExceeded, _custom_rate_limit_handler)
 
-frontend_url = os.getenv("FRONTEND_URL", "*")
+frontend_url = os.getenv("FRONTEND_URL", "")
+allowed_origins = [u.strip() for u in frontend_url.split(",") if u.strip()] if frontend_url else []
+if not allowed_origins:
+    logger.warning("FRONTEND_URL not set — CORS restricted to no external origins")
 app.add_middleware(CORSMiddleware,
-                   allow_origins=[frontend_url] if frontend_url != "*" else ["*"],
-                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+                   allow_origins=allowed_origins or ["http://localhost:3000", "http://localhost:8000"],
+                   allow_credentials=True, allow_methods=["GET", "POST"], allow_headers=["*"])
 
 app.include_router(analysis_router)
 app.include_router(reports_router)
@@ -83,19 +86,19 @@ if os.path.isdir(frontend_dir):
 
     @app.get("/app.js", include_in_schema=False)
     async def serve_app_js():
-        """Serve app.js for the frontend."""
         return FileResponse(os.path.join(frontend_dir, "app.js"), media_type="application/javascript")
-        """Serve a saved report by embedding the report data into the index.html page."""
+
+    @app.get("/report/{report_id}", include_in_schema=False)
+    async def serve_shared_report(report_id: str):
+        """Serve a saved report by embedding the report data into index.html."""
         report = await fs.get_report(report_id)
         if not report:
             return JSONResponse(status_code=404, content={"detail": "Report not found"})
-
         try:
             with open(_index_html_path, "r", encoding="utf-8") as f:
                 html = f.read()
         except OSError:
             return JSONResponse(status_code=500, content={"detail": "Frontend unavailable"})
-
         report_json = json.dumps(report.get("report", report), ensure_ascii=False)
         created_at = report.get("created_at", "")
         injection = (
@@ -106,7 +109,6 @@ if os.path.isdir(frontend_dir):
             f'window.__NIV_REPORT_CREATED__ = "{created_at}";'
             f'</script>'
         )
-        # Inject before </head> so globals are available when app.js runs
         html = html.replace("</head>", f"{injection}\n</head>", 1)
         return HTMLResponse(content=html)
 else:

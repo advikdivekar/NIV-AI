@@ -113,7 +113,7 @@ async def analyze_loan_letter_multimodal(
     content_type: str,
 ) -> Optional[dict]:
     """
-    Uses Gemini 1.5 Pro multimodal to analyze a loan sanction letter from raw bytes.
+    Uses Gemini multimodal to analyze a loan sanction letter from raw bytes.
     Processes visual layout, tables, stamps, and handwritten annotations that
     OCR-based extraction misses.
 
@@ -157,8 +157,8 @@ async def analyze_loan_letter(
     content_type: str = "application/pdf",
 ) -> dict:
     """
-    Analyzes a loan sanction letter. Tries Gemini 1.5 Pro multimodal first
-    when raw bytes are available, then falls back to text-based Groq analysis.
+    Analyzes a loan sanction letter. Tries Gemini multimodal first
+    when raw bytes are available, then falls back to text-based provider routing.
 
     Args:
         llm: LLM client instance.

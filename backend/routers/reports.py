@@ -2,9 +2,10 @@
 from __future__ import annotations
 import logging
 from typing import Optional
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 from backend.firebase.firestore import get_report, get_report_age_days, list_reports, save_outcome, save_report
+from backend.utils.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["reports"])
@@ -33,11 +34,15 @@ async def get_reports(x_user_id: Optional[str] = Header(None), limit: int = 20):
 
 
 @router.get("/reports/{report_id}")
-async def get_single_report(report_id: str):
-    """Retrieve a single saved report by ID."""
+@limiter.limit("60/minute")
+async def get_single_report(request: Request, report_id: str, x_user_id: Optional[str] = Header(None)):
     report = await get_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+    owner = report.get("user_id", "anonymous")
+    requester = x_user_id or "anonymous"
+    if owner != "anonymous" and owner != requester and not report.get("is_shared"):
+        raise HTTPException(status_code=403, detail="Access denied")
     return report
 
 

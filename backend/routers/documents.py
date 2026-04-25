@@ -148,7 +148,9 @@ async def parse_encumbrance_certificate(
     try:
         llm = LLMClient()
         analysis = await analyze_ec(
-            llm, ec_text, {"location_area": location_area, "property_price": property_price}
+            llm, ec_text,
+            {"location_area": location_area, "property_price": property_price},
+            pdf_bytes=contents,
         )
         return {"success": True, "analysis": analysis, "error": None}
     except Exception as exc:
@@ -203,7 +205,7 @@ async def parse_loan_letter(request: Request, file: UploadFile = File(...)):
 
     try:
         llm = LLMClient()
-        data = await analyze_loan_letter(llm, text)
+        data = await analyze_loan_letter(llm, text, file_bytes=contents, content_type=file.content_type or "application/pdf")
         return {"success": True, "data": data, "error": None}
     except Exception as exc:
         logger.error("Loan letter analysis failed: %s", exc)
