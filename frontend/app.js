@@ -1047,6 +1047,86 @@ function setSliderVisual(input) {
     input.style.background = `linear-gradient(90deg, #4f46e5 0%, #4f46e5 ${pctValue}%, #d7dbe7 ${pctValue}%, #d7dbe7 100%)`;
 }
 
+// ─── Signal Card colors aligned with fintech audit theme ───────────────────
+const _SIG_META = [
+    { bg: 'rgba(153,27,27,0.07)',  border: 'rgba(153,27,27,0.22)',  dot: '#991b1b', badge: 'bg:#991b1b', label: 'CRITICAL' },
+    { bg: 'rgba(180,83,9,0.07)',   border: 'rgba(180,83,9,0.22)',   dot: '#b45309', badge: 'bg:#b45309', label: 'HIGH RISK' },
+    { bg: 'rgba(71,85,105,0.06)',  border: 'rgba(71,85,105,0.18)',  dot: '#475569', badge: 'bg:#475569', label: 'INFO' },
+    { bg: 'rgba(71,85,105,0.04)',  border: 'rgba(71,85,105,0.12)',  dot: '#64748b', badge: 'bg:#64748b', label: 'NOTE' },
+];
+
+function _sigCard(reason, i) {
+    const meta = _SIG_META[Math.min(i, _SIG_META.length - 1)];
+    const dot  = meta.dot;
+    const parts = reason.split(/(?<=\.)\s+/);
+    const title = (parts[0] || reason).replace(/\.$/, '');
+    const body  = parts.slice(1).join(' ').trim() || '';
+    const emiMatch = reason.match(/(\d+(?:\.\d+)?)\s*%/);
+    const hasBar   = emiMatch && parseFloat(emiMatch[1]) > 25;
+    const pct      = hasBar ? Math.min(parseFloat(emiMatch[1]), 100) : 0;
+    return `<div class="sig-card" style="--sig-bg:${meta.bg};--sig-border:${meta.border};--sig-dot:${dot};">
+        <div class="sig-card-left">
+            <span class="sig-dot"></span>
+        </div>
+        <div class="sig-card-body">
+            <div class="sig-card-title">${esc(title)}</div>
+            ${body ? `<div class="sig-card-desc">${esc(body)}</div>` : ''}
+            ${hasBar ? `<div class="sig-bar-wrap" title="${esc(emiMatch[1])}% vs 30% threshold">
+                <div class="sig-bar-track">
+                    <div class="sig-bar-threshold" style="left:30%"></div>
+                    <div class="sig-bar-fill" data-w="${Math.min(pct,100)}%" style="width:0%;background:${dot};"></div>
+                </div>
+                <div class="sig-bar-labels">
+                    <span class="mono">${esc(emiMatch[1])}% actual</span>
+                    <span class="mono" style="color:#475569;">30% threshold</span>
+                </div>
+            </div>` : ''}
+        </div>
+        <span class="sig-badge" style="background:${dot};">${meta.label}</span>
+    </div>`;
+}
+
+function renderSignalCards(elId, reasons, r) {
+    const container = document.getElementById(elId);
+    if (!container) return;
+    const runway = r?.computed_numbers?.emergency_runway_months || 0;
+    const runwayColor = runway >= 6 ? '#065f46' : runway >= 3 ? '#b45309' : '#991b1b';
+    const runwayIcon  = runway >= 6 ? '🟢' : runway >= 3 ? '🟡' : '🔴';
+    const runwayBadge = `<div class="runway-badge" style="--rb-color:${runwayColor};">
+        <span class="runway-icon">${runwayIcon}</span>
+        <span class="runway-num mono">${runway.toFixed(1)}</span>
+        <span class="runway-label">months emergency runway</span>
+    </div>`;
+
+    const first4  = reasons.slice(0, 4);
+    const rest    = reasons.slice(4);
+    const cardsHTML = first4.map((reason, i) => _sigCard(reason, i)).join('');
+    container.innerHTML = `
+        ${runwayBadge}
+        <div class="sig-stack" id="${elId}-stack">${cardsHTML}</div>
+        ${rest.length ? `<div id="${elId}-more" class="sig-more" style="display:none;">${rest.map((r2, i) => _sigCard(r2, i + 4)).join('')}</div>
+        <button type="button" class="view-all-btn" id="${elId}-toggle" onclick="toggleSigMore('${elId}')">
+            <span>View All ${reasons.length} Factors</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>` : ''}`;
+    requestAnimationFrame(() => {
+        container.querySelectorAll('.sig-bar-fill').forEach(bar => {
+            bar.style.transition = 'width 0.8s cubic-bezier(0.16,1,0.3,1)';
+            bar.style.width = bar.dataset.w;
+        });
+    });
+}
+
+function toggleSigMore(elId) {
+    const more = document.getElementById(`${elId}-more`);
+    const btn  = document.getElementById(`${elId}-toggle`);
+    if (!more || !btn) return;
+    const open = more.style.display !== 'none';
+    more.style.display = open ? 'none' : 'block';
+    btn.querySelector('span').textContent = open ? `View All Factors` : 'Show Less';
+    btn.querySelector('svg').style.transform = open ? '' : 'rotate(180deg)';
+}
+
 function renderReport(r) {
     const c = r.computed_numbers || {};
     const v = (r.verdict || 'risky').toLowerCase();
@@ -1191,32 +1271,11 @@ function renderReport(r) {
     } catch (e) { console.error('r-challenges failed:', e); }
 
     try {
-        const reasons = (r.top_reasons || []).slice(0, 4);
-        if (!reasons.length) {
+        const allReasons = r.top_reasons || [];
+        if (!allReasons.length) {
             safeSetHTML('r-reasons', renderEmptyState('Top reasons are still being synthesized.'));
         } else {
-            const severityMeta = [
-                { bg: 'var(--red-bg)', border: 'var(--red-border)', dot: 'var(--red)', label: 'Critical' },
-                { bg: 'var(--yellow-bg)', border: 'var(--yellow-border)', dot: 'var(--yellow)', label: 'High' },
-                { bg: 'rgba(241,235,217,0.4)', border: 'var(--border)', dot: 'var(--text-muted)', label: 'Note' },
-                { bg: 'rgba(241,235,217,0.4)', border: 'var(--border)', dot: 'var(--text-muted)', label: 'Note' },
-            ];
-            const cards = reasons.map((reason, i) => {
-                const meta = severityMeta[Math.min(i, 3)];
-                const titleRaw = reason.split('.')[0] || reason;
-                const titleClean = titleRaw.length > 60 ? titleRaw.slice(0, 57) + '…' : titleRaw;
-                const bodyText = reason.length > titleRaw.length + 1 ? reason.slice(titleRaw.length + 1).trim() : reason;
-                return `<div class="verdict-driver-card" style="background:${meta.bg};border:1px solid ${meta.border};border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;">
-                    <span style="width:8px;height:8px;border-radius:50%;background:${meta.dot};flex-shrink:0;margin-top:6px;display:block;"></span>
-                    <div style="min-width:0;">
-                        <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;line-height:1.3;">${esc(titleClean)}</div>
-                        ${bodyText && bodyText !== titleClean ? `<div style="font-size:13px;color:var(--text-dim);line-height:1.55;">${esc(bodyText)}</div>` : ''}
-                    </div>
-                    <span style="font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:20px;background:${meta.dot};color:#fff;flex-shrink:0;margin-top:2px;opacity:0.85;">${meta.label}</span>
-                </div>`;
-            }).join('');
-            const hasMore = (r.top_reasons || []).length > 4;
-            safeSetHTML('r-reasons', `<div style="display:flex;flex-direction:column;gap:8px;">${cards}</div>${hasMore ? `<button type="button" class="btn-text" style="margin-top:12px;font-size:13px;" onclick="this.previousElementSibling.innerHTML += ${JSON.stringify((r.top_reasons || []).slice(4).map((reason, i) => { const titleRaw = reason.split('.')[0] || reason; const body = reason.length > titleRaw.length + 1 ? reason.slice(titleRaw.length + 1).trim() : reason; return `<div class=\"verdict-driver-card\" style=\"background:rgba(241,235,217,0.4);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;\"><span style=\"width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0;margin-top:6px;display:block;\"></span><div><div style=\"font-weight:700;font-size:13px;\">${esc(titleRaw)}</div>${body ? `<div style=\"font-size:13px;color:var(--text-dim);\">${esc(body)}</div>` : ''}</div></div>`; }).join(''))};this.remove()">View All Factors ↓</button>` : ''}`);
+            renderSignalCards('r-reasons', allReasons, r);
         }
     } catch (e) { console.error('r-reasons failed:', e); }
 
@@ -1225,22 +1284,30 @@ function renderReport(r) {
         if (!actions.length) {
             safeSetHTML('r-actions', renderEmptyState('No action list was returned for this scenario.'));
         } else {
-            const priorityIcons = ['🔴', '🟡', '🔵', '⚪'];
-            const priorityLabels = ['Do first', 'Do soon', 'Consider', 'Optional'];
+            const taskMeta = [
+                { badge: 'PRIORITY',  color: '#991b1b', bg: 'rgba(153,27,27,0.08)' },
+                { badge: 'URGENT',    color: '#b45309', bg: 'rgba(180,83,9,0.08)'  },
+                { badge: 'PLANNING',  color: '#475569', bg: 'rgba(71,85,105,0.07)' },
+                { badge: 'OPTIONAL',  color: '#64748b', bg: 'rgba(100,116,139,0.05)' },
+            ];
             const rows = actions.map((action, i) => {
+                const p = Math.min(i, taskMeta.length - 1);
+                const m = taskMeta[p];
                 const titleRaw = action.split('.')[0] || action;
                 const detail = action.length > titleRaw.length + 1 ? action.slice(titleRaw.length + 1).trim() : '';
-                const p = Math.min(i, 3);
-                return `<div class="action-row" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);transition:background 0.15s;">
-                    <span style="font-size:16px;flex-shrink:0;line-height:1;" aria-hidden="true">${priorityIcons[p]}</span>
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.3;">${esc(titleRaw)}</div>
-                        ${detail ? `<div style="font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.5;">${esc(detail)}</div>` : ''}
+                return `<div class="task-row">
+                    <svg class="task-check" viewBox="0 0 20 20" fill="none" stroke="${m.color}" stroke-width="2">
+                        <rect x="3" y="3" width="14" height="14" rx="3"/>
+                        <polyline points="6.5 10 9 12.5 13.5 7.5" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+                    </svg>
+                    <div class="task-body">
+                        <div class="task-title">${esc(titleRaw)}</div>
+                        ${detail ? `<div class="task-detail">${esc(detail)}</div>` : ''}
                     </div>
-                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);flex-shrink:0;white-space:nowrap;">${priorityLabels[p]}</span>
+                    <span class="task-badge" style="color:${m.color};background:${m.bg};border-color:${m.color}20;">${m.badge}</span>
                 </div>`;
             }).join('');
-            safeSetHTML('r-actions', `<div style="display:flex;flex-direction:column;gap:6px;">${rows}</div>`);
+            safeSetHTML('r-actions', `<div class="task-list">${rows}</div>`);
         }
     } catch (e) { console.error('r-actions failed:', e); }
 
@@ -1256,16 +1323,19 @@ function renderReport(r) {
             const alerts = blindSpots.map(item => {
                 const titleRaw = item.split('.')[0] || item;
                 const body = item.length > titleRaw.length + 1 ? item.slice(titleRaw.length + 1).trim() : item;
-                const hasConsequence = body && body !== titleRaw;
-                return `<div class="blind-alert" style="display:flex;gap:12px;padding:13px 16px;background:rgba(202,138,4,0.06);border:1px solid rgba(202,138,4,0.22);border-radius:9px;align-items:flex-start;">
-                    <span style="font-size:15px;flex-shrink:0;margin-top:1px;">⚑</span>
-                    <div>
-                        <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:${hasConsequence ? '4px' : '0'};">${esc(titleRaw)}</div>
-                        ${hasConsequence ? `<div style="font-size:13px;color:var(--text-dim);line-height:1.55;">${esc(body)}</div>` : ''}
+                const hasBody = body && body !== titleRaw;
+                return `<div class="intel-alert">
+                    <svg class="intel-icon" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18h6M10 22h4M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6l-.7.4V18H9v-2.6l-.7-.4A7 7 0 0 1 12 2z"/>
+                    </svg>
+                    <div class="intel-body">
+                        <div class="intel-title">${esc(titleRaw)}</div>
+                        ${hasBody ? `<div class="intel-desc">${esc(body)}</div>` : ''}
                     </div>
+                    <span class="intel-tag">HIDDEN GAP</span>
                 </div>`;
             }).join('');
-            safeSetHTML('r-blind', `<div style="display:flex;flex-direction:column;gap:7px;">${alerts}</div>`);
+            safeSetHTML('r-blind', `<div class="intel-list">${alerts}</div>`);
         }
     } catch (e) { console.error('r-blind failed:', e); }
 
@@ -1566,13 +1636,24 @@ async function sendReportToWhatsApp() {
             status.className = 'wa-send-status wa-status-ok';
             status.textContent = '✓ Report sent to +91 ' + raw.slice(0, 5) + 'XXXXX';
             btn.textContent = 'Sent ✓';
+        } else if (res.status === 503) {
+            status.style.display = 'block';
+            status.className = 'wa-send-status wa-status-dev';
+            status.innerHTML = '🚧 <strong>WhatsApp — Coming Soon</strong><br><span style="font-weight:400;">This feature is almost ready. We\'re finishing our Meta Business verification. Check back in a few days — it\'ll be worth the wait!</span>';
+            btn.disabled = false;
+            btn.textContent = 'Send Report';
         } else {
             throw new Error(data.detail || 'Send failed');
         }
     } catch (err) {
         status.style.display = 'block';
-        status.className = 'wa-send-status wa-status-error';
-        status.textContent = err.message.includes('WhatsApp') ? err.message : 'Could not send — check WhatsApp configuration.';
+        if (err.message && (err.message.includes('503') || err.message.includes('not enabled'))) {
+            status.className = 'wa-send-status wa-status-dev';
+            status.innerHTML = '🚧 <strong>WhatsApp — Coming Soon</strong><br><span style="font-weight:400;">We\'re almost there. Meta Business API credentials are being set up. Your report will land on WhatsApp very soon!</span>';
+        } else {
+            status.className = 'wa-send-status wa-status-error';
+            status.textContent = 'Could not send right now. Please try the Copy Link option above.';
+        }
         btn.disabled = false;
         btn.textContent = 'Send Report';
     }

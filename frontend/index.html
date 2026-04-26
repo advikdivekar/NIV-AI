@@ -19,6 +19,7 @@
         <a href="#features">Features</a>
         <a href="#what-you-get">What you get</a>
         <a href="#compare">Why choose NIV AI</a>
+        <a href="#about">About Us</a>
       </div>
       <a href="app.html" class="btn-primary nav-cta">Analyze My Property →</a>
       <button id="nav-toggle" class="nav-toggle" aria-label="Toggle navigation">
@@ -689,6 +690,104 @@
     </div>
   </section>
 
+  <!-- ─── ABOUT US ─── -->
+  <section class="about-section" id="about">
+    <div class="container">
+      <div class="about-header" data-animate="fade-in">
+        <p class="section-label"><span>◆</span> THE TEAM</p>
+        <h2 class="about-h2">Built on <span class="about-h2-accent">6 losses.</span><br>Shipped for real people.</h2>
+        <p class="about-hero-sub">We entered six hackathons and lost every single one. NIV AI is what happens when you stop caring about trophies and start caring about the problem.</p>
+      </div>
+
+      <div class="about-grid">
+        <div class="about-left" data-animate="slide-up">
+          <div class="about-story-card">
+            <div class="about-story-icon">⚡</div>
+            <h3 class="about-story-title">Every loss sharpened us</h3>
+            <p class="about-story-text">Every rejection made the product better. This is our seventh attempt — and this time we built it for real people, not judges.</p>
+          </div>
+          <div class="about-story-card" style="transition-delay:0.1s">
+            <div class="about-story-icon">🏗️</div>
+            <h3 class="about-story-title">We are builders first</h3>
+            <p class="about-story-text">No VC backing, no prestige. Just a team obsessed with solving one of the most stressful decisions a family ever makes.</p>
+          </div>
+          <div class="about-story-card" style="transition-delay:0.2s">
+            <div class="about-story-icon">🎯</div>
+            <h3 class="about-story-title">Mumbai is our mission</h3>
+            <p class="about-story-text">We grew up watching families get burned by bad real-estate decisions. NIV AI exists so that never happens again.</p>
+          </div>
+        </div>
+
+        <div class="about-right" data-animate="slide-up" style="transition-delay:0.15s">
+          <div class="about-losses-card">
+            <div class="about-losses-header">
+              <p class="about-losses-label">OUR DEFEAT RECORD</p>
+              <div class="about-losses-score">
+                <span class="about-score-num">6</span><span class="about-score-sep">/</span><span class="about-score-denom">6</span>
+                <span class="about-score-tag">losses</span>
+              </div>
+            </div>
+            <div class="about-losses">
+              <div class="about-loss-row">
+                <span class="about-loss-num">01</span>
+                <div class="about-loss-info">
+                  <div class="about-loss-name">Smart India Hackathon 2025</div>
+                  <div class="about-loss-note">National level · Lost in finals</div>
+                </div>
+                <span class="about-loss-badge">L</span>
+              </div>
+              <div class="about-loss-row">
+                <span class="about-loss-num">02</span>
+                <div class="about-loss-info">
+                  <div class="about-loss-name">MetaxScalar Hackathon</div>
+                  <div class="about-loss-note">Blockchain & AI track</div>
+                </div>
+                <span class="about-loss-badge">L</span>
+              </div>
+              <div class="about-loss-row">
+                <span class="about-loss-num">03</span>
+                <div class="about-loss-info">
+                  <div class="about-loss-name">IEEE Hackxplore</div>
+                  <div class="about-loss-note">IEEE chapter competition</div>
+                </div>
+                <span class="about-loss-badge">L</span>
+              </div>
+              <div class="about-loss-row">
+                <span class="about-loss-num">04</span>
+                <div class="about-loss-info">
+                  <div class="about-loss-name">CodeForge</div>
+                  <div class="about-loss-note">Full-stack engineering sprint</div>
+                </div>
+                <span class="about-loss-badge">L</span>
+              </div>
+              <div class="about-loss-row">
+                <span class="about-loss-num">05</span>
+                <div class="about-loss-info">
+                  <div class="about-loss-name">InnvoteX</div>
+                  <div class="about-loss-note">Innovation & product design</div>
+                </div>
+                <span class="about-loss-badge">L</span>
+              </div>
+              <div class="about-loss-row">
+                <span class="about-loss-num">06</span>
+                <div class="about-loss-info">
+                  <div class="about-loss-name">Locus <span class="about-loss-yc">(YC W25)</span></div>
+                  <div class="about-loss-note">Y Combinator backed hackathon</div>
+                </div>
+                <span class="about-loss-badge">L</span>
+              </div>
+            </div>
+            <div class="about-wins-note">
+              <span class="about-wins-zero">0 wins.</span>
+              <span class="about-wins-lessons">6 lessons.</span>
+              <span class="about-wins-product">1 product that actually works.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ─── FOOTER ─── -->
   <footer class="landing-footer">
     <div class="container footer-inner">
@@ -768,6 +867,18 @@
     }, { threshold: 0.5 });
 
     document.querySelectorAll('.draw-check').forEach(el => checkObserver.observe(el));
+
+    // About section — story cards & loss rows slide in on scroll
+    const aboutObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          aboutObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.about-story-card, .about-loss-row').forEach(el => aboutObserver.observe(el));
 
     // Mobile nav toggle with height animation
     const navToggle = document.getElementById('nav-toggle');
