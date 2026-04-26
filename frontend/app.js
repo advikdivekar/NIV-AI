@@ -1047,68 +1047,92 @@ function setSliderVisual(input) {
     input.style.background = `linear-gradient(90deg, #4f46e5 0%, #4f46e5 ${pctValue}%, #d7dbe7 ${pctValue}%, #d7dbe7 100%)`;
 }
 
-// ─── Signal Card colors aligned with fintech audit theme ───────────────────
+// ─── Signal Card metadata — Crimson / Amber / Slate palette ───────────────
 const _SIG_META = [
-    { bg: 'rgba(153,27,27,0.07)',  border: 'rgba(153,27,27,0.22)',  dot: '#991b1b', badge: 'bg:#991b1b', label: 'CRITICAL' },
-    { bg: 'rgba(180,83,9,0.07)',   border: 'rgba(180,83,9,0.22)',   dot: '#b45309', badge: 'bg:#b45309', label: 'HIGH RISK' },
-    { bg: 'rgba(71,85,105,0.06)',  border: 'rgba(71,85,105,0.18)',  dot: '#475569', badge: 'bg:#475569', label: 'INFO' },
-    { bg: 'rgba(71,85,105,0.04)',  border: 'rgba(71,85,105,0.12)',  dot: '#64748b', badge: 'bg:#64748b', label: 'NOTE' },
+    { bg: 'rgba(153,27,27,0.06)',  border: 'rgba(153,27,27,0.20)',  dot: '#991b1b', label: 'CRITICAL',  labelBg: 'rgba(153,27,27,0.10)', labelColor: '#991b1b' },
+    { bg: 'rgba(180,83,9,0.06)',   border: 'rgba(180,83,9,0.20)',   dot: '#b45309', label: 'HIGH RISK', labelBg: 'rgba(180,83,9,0.10)',  labelColor: '#b45309' },
+    { bg: 'rgba(71,85,105,0.05)',  border: 'rgba(71,85,105,0.16)',  dot: '#475569', label: 'CAUTION',   labelBg: 'rgba(71,85,105,0.09)', labelColor: '#475569' },
+    { bg: 'rgba(71,85,105,0.03)',  border: 'rgba(71,85,105,0.10)',  dot: '#64748b', label: 'NOTE',      labelBg: 'rgba(100,116,139,0.08)', labelColor: '#64748b' },
 ];
 
 function _sigCard(reason, i) {
-    const meta = _SIG_META[Math.min(i, _SIG_META.length - 1)];
-    const dot  = meta.dot;
+    const meta  = _SIG_META[Math.min(i, _SIG_META.length - 1)];
     const parts = reason.split(/(?<=\.)\s+/);
     const title = (parts[0] || reason).replace(/\.$/, '');
     const body  = parts.slice(1).join(' ').trim() || '';
-    const emiMatch = reason.match(/(\d+(?:\.\d+)?)\s*%/);
-    const hasBar   = emiMatch && parseFloat(emiMatch[1]) > 25;
-    const pct      = hasBar ? Math.min(parseFloat(emiMatch[1]), 100) : 0;
-    return `<div class="sig-card" style="--sig-bg:${meta.bg};--sig-border:${meta.border};--sig-dot:${dot};">
-        <div class="sig-card-left">
-            <span class="sig-dot"></span>
-        </div>
+    const pctMatch = reason.match(/(\d+(?:\.\d+)?)\s*%/);
+    const pctVal   = pctMatch ? parseFloat(pctMatch[1]) : 0;
+    const hasBar   = pctVal > 25;
+    const barW     = Math.min(pctVal, 100);
+    const safeBar  = hasBar
+        ? `<div class="sig-bar-wrap">
+               <div class="sig-bar-header">
+                   <span class="sig-bar-label mono">${esc(pctMatch[1])}% actual</span>
+                   <span class="sig-bar-label mono sig-bar-threshold-label">30% safe threshold</span>
+               </div>
+               <div class="sig-bar-track">
+                   <div class="sig-bar-fill" data-w="${barW}%" style="width:0%;background:${meta.dot};"></div>
+                   <div class="sig-bar-threshold" style="left:30%"></div>
+               </div>
+           </div>`
+        : '';
+    return `<div class="sig-card" style="--sig-bg:${meta.bg};--sig-border:${meta.border};">
+        <div class="sig-card-accent" style="background:${meta.dot};"></div>
         <div class="sig-card-body">
-            <div class="sig-card-title">${esc(title)}</div>
+            <div class="sig-card-header">
+                <div class="sig-card-title">${esc(title)}</div>
+                <span class="sig-badge" style="color:${meta.labelColor};background:${meta.labelBg};border-color:${meta.dot}33;">${meta.label}</span>
+            </div>
             ${body ? `<div class="sig-card-desc">${esc(body)}</div>` : ''}
-            ${hasBar ? `<div class="sig-bar-wrap" title="${esc(emiMatch[1])}% vs 30% threshold">
-                <div class="sig-bar-track">
-                    <div class="sig-bar-threshold" style="left:30%"></div>
-                    <div class="sig-bar-fill" data-w="${Math.min(pct,100)}%" style="width:0%;background:${dot};"></div>
-                </div>
-                <div class="sig-bar-labels">
-                    <span class="mono">${esc(emiMatch[1])}% actual</span>
-                    <span class="mono" style="color:#475569;">30% threshold</span>
-                </div>
-            </div>` : ''}
+            ${safeBar}
         </div>
-        <span class="sig-badge" style="background:${dot};">${meta.label}</span>
     </div>`;
 }
 
 function renderSignalCards(elId, reasons, r) {
     const container = document.getElementById(elId);
     if (!container) return;
-    const runway = r?.computed_numbers?.emergency_runway_months || 0;
+    const runway      = r?.computed_numbers?.emergency_runway_months || 0;
     const runwayColor = runway >= 6 ? '#065f46' : runway >= 3 ? '#b45309' : '#991b1b';
-    const runwayIcon  = runway >= 6 ? '🟢' : runway >= 3 ? '🟡' : '🔴';
+    const runwayLabel = runway >= 6 ? 'Comfortable' : runway >= 3 ? 'Thin' : 'Fragile';
+    const runwaySegs  = Array.from({ length: 8 }, (_, k) => {
+        const threshold = (k + 1) * 1.5;
+        const filled    = runway >= threshold;
+        return `<span class="rb-seg ${filled ? 'rb-seg-on' : ''}" style="${filled ? `background:${runwayColor};` : ''}"></span>`;
+    }).join('');
+
     const runwayBadge = `<div class="runway-badge" style="--rb-color:${runwayColor};">
-        <span class="runway-icon">${runwayIcon}</span>
-        <span class="runway-num mono">${runway.toFixed(1)}</span>
-        <span class="runway-label">months emergency runway</span>
+        <div class="rb-left">
+            <span class="rb-num mono">${runway.toFixed(1)}</span>
+            <span class="rb-unit">months emergency runway</span>
+        </div>
+        <div class="rb-meter">${runwaySegs}</div>
+        <span class="rb-tag" style="color:${runwayColor};background:color-mix(in srgb,${runwayColor} 10%,transparent);border-color:${runwayColor}44;">${runwayLabel}</span>
     </div>`;
 
-    const first4  = reasons.slice(0, 4);
-    const rest    = reasons.slice(4);
+    const first4    = reasons.slice(0, 4);
+    const rest      = reasons.slice(4);
     const cardsHTML = first4.map((reason, i) => _sigCard(reason, i)).join('');
-    container.innerHTML = `
-        ${runwayBadge}
-        <div class="sig-stack" id="${elId}-stack">${cardsHTML}</div>
-        ${rest.length ? `<div id="${elId}-more" class="sig-more" style="display:none;">${rest.map((r2, i) => _sigCard(r2, i + 4)).join('')}</div>
-        <button type="button" class="view-all-btn" id="${elId}-toggle" onclick="toggleSigMore('${elId}')">
+
+    let moreHTML = '';
+    if (rest.length) {
+        const moreId   = elId + '-more';
+        const toggleId = elId + '-toggle';
+        moreHTML = `<div id="${moreId}" class="sig-more" style="display:none;">${rest.map((r2, i) => _sigCard(r2, i + 4)).join('')}</div>
+        <button type="button" class="view-all-btn" id="${toggleId}" data-target="${elId}">
             <span>View All ${reasons.length} Factors</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        </button>` : ''}`;
+        </button>`;
+    }
+
+    container.innerHTML = `${runwayBadge}<div class="sig-stack" id="${elId}-stack">${cardsHTML}</div>${moreHTML}`;
+
+    // Wire up toggle via event listener — no inline onclick
+    const toggleBtn = container.querySelector('.view-all-btn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => toggleSigMore(elId));
+    }
+
     requestAnimationFrame(() => {
         container.querySelectorAll('.sig-bar-fill').forEach(bar => {
             bar.style.transition = 'width 0.8s cubic-bezier(0.16,1,0.3,1)';
@@ -1118,8 +1142,8 @@ function renderSignalCards(elId, reasons, r) {
 }
 
 function toggleSigMore(elId) {
-    const more = document.getElementById(`${elId}-more`);
-    const btn  = document.getElementById(`${elId}-toggle`);
+    const more = document.getElementById(elId + '-more');
+    const btn  = document.getElementById(elId + '-toggle');
     if (!more || !btn) return;
     const open = more.style.display !== 'none';
     more.style.display = open ? 'none' : 'block';
@@ -1285,26 +1309,26 @@ function renderReport(r) {
             safeSetHTML('r-actions', renderEmptyState('No action list was returned for this scenario.'));
         } else {
             const taskMeta = [
-                { badge: 'PRIORITY',  color: '#991b1b', bg: 'rgba(153,27,27,0.08)' },
-                { badge: 'URGENT',    color: '#b45309', bg: 'rgba(180,83,9,0.08)'  },
-                { badge: 'PLANNING',  color: '#475569', bg: 'rgba(71,85,105,0.07)' },
-                { badge: 'OPTIONAL',  color: '#64748b', bg: 'rgba(100,116,139,0.05)' },
+                { badge: 'DO FIRST', color: '#991b1b', bg: 'rgba(153,27,27,0.08)', border: 'rgba(153,27,27,0.25)', leftBar: '#991b1b' },
+                { badge: 'URGENT',   color: '#b45309', bg: 'rgba(180,83,9,0.08)',  border: 'rgba(180,83,9,0.25)',  leftBar: '#b45309' },
+                { badge: 'PLAN',     color: '#475569', bg: 'rgba(71,85,105,0.07)', border: 'rgba(71,85,105,0.20)', leftBar: '#475569' },
+                { badge: 'OPTIONAL', color: '#64748b', bg: 'rgba(100,116,139,0.05)', border: 'rgba(100,116,139,0.15)', leftBar: '#94a3b8' },
             ];
             const rows = actions.map((action, i) => {
-                const p = Math.min(i, taskMeta.length - 1);
-                const m = taskMeta[p];
-                const titleRaw = action.split('.')[0] || action;
-                const detail = action.length > titleRaw.length + 1 ? action.slice(titleRaw.length + 1).trim() : '';
-                return `<div class="task-row">
+                const m        = taskMeta[Math.min(i, taskMeta.length - 1)];
+                const dotIdx   = action.indexOf('.');
+                const titleRaw = dotIdx > 0 ? action.slice(0, dotIdx) : action;
+                const detail   = dotIdx > 0 ? action.slice(dotIdx + 1).trim() : '';
+                return `<div class="task-row" style="border-left:3px solid ${m.leftBar};">
                     <svg class="task-check" viewBox="0 0 20 20" fill="none" stroke="${m.color}" stroke-width="2">
                         <rect x="3" y="3" width="14" height="14" rx="3"/>
-                        <polyline points="6.5 10 9 12.5 13.5 7.5" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+                        <polyline points="6.5 10 9 12.5 13.5 7.5" stroke="${m.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>
                     </svg>
                     <div class="task-body">
                         <div class="task-title">${esc(titleRaw)}</div>
                         ${detail ? `<div class="task-detail">${esc(detail)}</div>` : ''}
                     </div>
-                    <span class="task-badge" style="color:${m.color};background:${m.bg};border-color:${m.color}20;">${m.badge}</span>
+                    <span class="task-badge" style="color:${m.color};background:${m.bg};border:1px solid ${m.border};">${m.badge}</span>
                 </div>`;
             }).join('');
             safeSetHTML('r-actions', `<div class="task-list">${rows}</div>`);
@@ -1320,19 +1344,25 @@ function renderReport(r) {
         if (!blindSpots.length) {
             safeSetHTML('r-blind', renderEmptyState('No blind spots were flagged in this run.'));
         } else {
+            const flashlightSVG = `<svg class="intel-icon" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 13V4.5a1.5 1.5 0 0 1 3 0V13"/>
+                <path d="M11 13v-2.5a1.5 1.5 0 0 1 3 0V13"/>
+                <path d="M14 13v-1a1.5 1.5 0 0 1 3 0v3a6 6 0 0 1-6 6H9a7 7 0 0 1-7-7 1 1 0 0 1 1-1h3"/>
+                <path d="M5 3 3 5"/>
+                <path d="m3 3 2 2"/>
+            </svg>`;
             const alerts = blindSpots.map(item => {
-                const titleRaw = item.split('.')[0] || item;
-                const body = item.length > titleRaw.length + 1 ? item.slice(titleRaw.length + 1).trim() : item;
-                const hasBody = body && body !== titleRaw;
+                const dotIdx   = item.indexOf('.');
+                const titleRaw = dotIdx > 0 ? item.slice(0, dotIdx) : item;
+                const body     = dotIdx > 0 ? item.slice(dotIdx + 1).trim() : '';
+                const hasBody  = body.length > 0;
                 return `<div class="intel-alert">
-                    <svg class="intel-icon" viewBox="0 0 24 24" fill="none" stroke="#b45309" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 18h6M10 22h4M12 2a7 7 0 0 1 7 7c0 2.5-1.3 4.7-3.3 6l-.7.4V18H9v-2.6l-.7-.4A7 7 0 0 1 12 2z"/>
-                    </svg>
+                    ${flashlightSVG}
                     <div class="intel-body">
                         <div class="intel-title">${esc(titleRaw)}</div>
                         ${hasBody ? `<div class="intel-desc">${esc(body)}</div>` : ''}
                     </div>
-                    <span class="intel-tag">HIDDEN GAP</span>
+                    <span class="intel-tag">BLINDSPOT</span>
                 </div>`;
             }).join('');
             safeSetHTML('r-blind', `<div class="intel-list">${alerts}</div>`);
@@ -1797,14 +1827,33 @@ function maybeShowOutcomePrompt() {
     const ageDays = Math.floor((new Date() - new Date(createdStr)) / 86400000);
     if (ageDays < 7 || ageDays > 180) return;
 
-    const div = document.createElement('div');
-    div.innerHTML = `<div style="position:fixed;bottom:20px;right:20px;background:#0e0e1a;border:1px solid #2a2a40;padding:20px;border-radius:12px;z-index:9999;">
-                <p style="margin-bottom:10px;font-size:14px;font-weight:bold;">What did you decide?</p>
-                <button onclick="submitOutcome('bought', this)" style="margin:5px;padding:5px 10px;background:#052010;color:#22c55e;border:1px solid #0f3020;border-radius:5px;">Bought it</button>
-                <button onclick="submitOutcome('walked_away', this)" style="margin:5px;padding:5px 10px;background:#180808;color:#ef4444;border:1px solid #2a1010;border-radius:5px;">Walked away</button>
-                <button onclick="this.parentElement.remove()" style="position:absolute;top:5px;right:10px;background:none;border:none;color:#9896b8;">x</button>
-            </div>`;
-    document.body.appendChild(div);
+    const popup = document.createElement('div');
+    popup.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#0e0e1a;border:1px solid #2a2a40;padding:20px;border-radius:12px;z-index:9999;';
+
+    const title = document.createElement('p');
+    title.style.cssText = 'margin-bottom:10px;font-size:14px;font-weight:bold;color:#f1f5f9;';
+    title.textContent = 'What did you decide?';
+
+    const boughtBtn = document.createElement('button');
+    boughtBtn.style.cssText = 'margin:5px;padding:5px 10px;background:#052010;color:#22c55e;border:1px solid #0f3020;border-radius:5px;cursor:pointer;';
+    boughtBtn.textContent = 'Bought it';
+    boughtBtn.addEventListener('click', () => submitOutcome('bought', boughtBtn));
+
+    const walkBtn = document.createElement('button');
+    walkBtn.style.cssText = 'margin:5px;padding:5px 10px;background:#180808;color:#ef4444;border:1px solid #2a1010;border-radius:5px;cursor:pointer;';
+    walkBtn.textContent = 'Walked away';
+    walkBtn.addEventListener('click', () => submitOutcome('walked_away', walkBtn));
+
+    const closeBtn = document.createElement('button');
+    closeBtn.style.cssText = 'position:absolute;top:5px;right:10px;background:none;border:none;color:#9896b8;cursor:pointer;font-size:16px;';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', () => popup.remove());
+
+    popup.appendChild(title);
+    popup.appendChild(boughtBtn);
+    popup.appendChild(walkBtn);
+    popup.appendChild(closeBtn);
+    document.body.appendChild(popup);
 }
 
 async function submitOutcome(outcome, btn) {
