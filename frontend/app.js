@@ -1,15 +1,15 @@
-const API = ''; // Update if backend is hosted elsewhere
+const API = 'https://niv-ai-216564346797.asia-south1.run.app';
 
 // === STATE MANAGEMENT ===
 const STATE = {
-  currentStep: 1, selectedLanguage: 'english',
-  lastReport: null, lastInput: null, lastComputed: null,
-  whatIfOriginal: null, lastInputCached: null,
-  comparisonReport: null, currentShareUrl: '',
-  bankEmailContent: null, frictionAnswers: {},
-  marketRatesCache: null, marketRatesFetchTime: 0,
-  propertyPhotoFiles: [],
-  visualInspectionResult: null,
+    currentStep: 1, selectedLanguage: 'english',
+    lastReport: null, lastInput: null, lastComputed: null,
+    whatIfOriginal: null, lastInputCached: null,
+    comparisonReport: null, currentShareUrl: '',
+    bankEmailContent: null, frictionAnswers: {},
+    marketRatesCache: null, marketRatesFetchTime: 0,
+    propertyPhotoFiles: [],
+    visualInspectionResult: null,
 };
 
 // === UTILITY FUNCTIONS ===
@@ -18,57 +18,57 @@ const STATE = {
  * @param {HTMLElement} el @param {number} target @param {number} duration
  * @param {Function} formatter
  */
-function animateCount(el, target, duration=800, formatter=v=>Math.round(v)) {
-  const start = performance.now();
-  function tick(now) {
-    const p = Math.min((now-start)/duration, 1);
-    const ease = 1-Math.pow(1-p, 3);
-    el.textContent = formatter(ease * target);
-    if (p < 1) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
+function animateCount(el, target, duration = 800, formatter = v => Math.round(v)) {
+    const start = performance.now();
+    function tick(now) {
+        const p = Math.min((now - start) / duration, 1);
+        const ease = 1 - Math.pow(1 - p, 3);
+        el.textContent = formatter(ease * target);
+        if (p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
 }
 
 /**
  * Staggered entrance animation on array of elements.
  * @param {NodeList|Array} elements @param {string} className @param {number} staggerMs
  */
-function staggerEntrance(elements, className, staggerMs=60) {
-  [...elements].forEach((el, i) =>
-    setTimeout(() => el.classList.add(className), i * staggerMs));
+function staggerEntrance(elements, className, staggerMs = 60) {
+    [...elements].forEach((el, i) =>
+        setTimeout(() => el.classList.add(className), i * staggerMs));
 }
 
 /**
  * IntersectionObserver that fires callback once when element enters viewport.
  * @param {HTMLElement} el @param {Function} callback @param {number} threshold
  */
-function onVisible(el, callback, threshold=0.2) {
-  if (!el) return;
-  new IntersectionObserver((entries, obs) => {
-    if (entries[0].isIntersecting) { callback(); obs.unobserve(el); }
-  }, {threshold}).observe(el);
+function onVisible(el, callback, threshold = 0.2) {
+    if (!el) return;
+    new IntersectionObserver((entries, obs) => {
+        if (entries[0].isIntersecting) { callback(); obs.unobserve(el); }
+    }, { threshold }).observe(el);
 }
 
 function formatIndianDigits(raw) {
-  if (!raw) return '';
-  if (raw.length <= 3) return raw;
-  const lastThree = raw.slice(-3);
-  const rest = raw.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
-  return `${rest},${lastThree}`;
+    if (!raw) return '';
+    if (raw.length <= 3) return raw;
+    const lastThree = raw.slice(-3);
+    const rest = raw.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+    return `${rest},${lastThree}`;
 }
 
 function countDigitsBeforeCaret(value, caretPos) {
-  return value.slice(0, caretPos).replace(/\D/g, '').length;
+    return value.slice(0, caretPos).replace(/\D/g, '').length;
 }
 
 function caretFromDigitIndex(formatted, digitIndex) {
-  if (digitIndex <= 0) return 0;
-  let digitsSeen = 0;
-  for (let i = 0; i < formatted.length; i++) {
-    if (/\d/.test(formatted[i])) digitsSeen += 1;
-    if (digitsSeen >= digitIndex) return i + 1;
-  }
-  return formatted.length;
+    if (digitIndex <= 0) return 0;
+    let digitsSeen = 0;
+    for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) digitsSeen += 1;
+        if (digitsSeen >= digitIndex) return i + 1;
+    }
+    return formatted.length;
 }
 
 /**
@@ -76,21 +76,21 @@ function caretFromDigitIndex(formatted, digitIndex) {
  * @param {HTMLInputElement} input
  */
 function setupIndianNumberFormat(input) {
-  if (!input) return;
-  input.addEventListener('input', function() {
-    const selectionStart = this.selectionStart ?? this.value.length;
-    let raw = this.value.replace(/\D/g, '');
-    if (raw.length > 12) raw = raw.slice(0, 12);
+    if (!input) return;
+    input.addEventListener('input', function () {
+        const selectionStart = this.selectionStart ?? this.value.length;
+        let raw = this.value.replace(/\D/g, '');
+        if (raw.length > 12) raw = raw.slice(0, 12);
 
-    const digitsBeforeCaret = countDigitsBeforeCaret(this.value, selectionStart);
-    const formatted = formatIndianDigits(raw);
+        const digitsBeforeCaret = countDigitsBeforeCaret(this.value, selectionStart);
+        const formatted = formatIndianDigits(raw);
 
-    this.dataset.raw = raw;
-    this.value = formatted;
+        this.dataset.raw = raw;
+        this.value = formatted;
 
-    const nextCaret = caretFromDigitIndex(formatted, Math.min(digitsBeforeCaret, raw.length));
-    this.setSelectionRange(nextCaret, nextCaret);
-  });
+        const nextCaret = caretFromDigitIndex(formatted, Math.min(digitsBeforeCaret, raw.length));
+        this.setSelectionRange(nextCaret, nextCaret);
+    });
 }
 
 // --- STATE VARIABLES ---
@@ -112,45 +112,45 @@ let loadingQuoteTimer = null;
 let bankEmailReturnPage = 0;
 
 const reportPageDescriptions = [
-  'Start with the decision summary, core affordability, and top warning signals.',
-  'Pressure-test the purchase with scenarios and real-world shock simulations.',
-  'Analyze the physical asset quality, local pricing benchmarks, and rent-vs-buy math.',
-  'Review the true acquisition cost including hidden friction and interior projections.',
-  'Understand the reasoning, challenged assumptions, and buyer blind spots behind the verdict.',
-  'Compare alternatives, verify documents, and export your full audit report.'
+    'Start with the decision summary, core affordability, and top warning signals.',
+    'Pressure-test the purchase with scenarios and real-world shock simulations.',
+    'Analyze the physical asset quality, local pricing benchmarks, and rent-vs-buy math.',
+    'Review the true acquisition cost including hidden friction and interior projections.',
+    'Understand the reasoning, challenged assumptions, and buyer blind spots behind the verdict.',
+    'Compare alternatives, verify documents, and export your full audit report.'
 ];
 
 
 const loadingQuotes = [
-  {
-    quote: 'A good property decision is usually won at entry price, not at brochure quality.',
-    note: 'We are checking whether the numbers still make sense after EMI, maintenance, and real-world buffers.'
-  },
-  {
-    quote: 'In real estate, liquidity matters. A home is easy to enter and expensive to exit.',
-    note: 'This is why tenure, runway, and downside resilience matter as much as monthly affordability.'
-  },
-  {
-    quote: 'An affordable EMI can still be a weak decision if it wipes out your safety cushion.',
-    note: 'We are comparing affordability with survival capacity, not just bank eligibility.'
-  },
-  {
-    quote: 'Builder reputation reduces uncertainty, but it never replaces document and delay risk checks.',
-    note: 'We are weighing project signals, execution risk, and cost drag together.'
-  },
-  {
-    quote: 'The best property is not always the one you can buy. It is the one you can hold safely.',
-    note: 'Our agents are testing whether this purchase still works when life is slightly uncooperative.'
-  }
+    {
+        quote: 'A good property decision is usually won at entry price, not at brochure quality.',
+        note: 'We are checking whether the numbers still make sense after EMI, maintenance, and real-world buffers.'
+    },
+    {
+        quote: 'In real estate, liquidity matters. A home is easy to enter and expensive to exit.',
+        note: 'This is why tenure, runway, and downside resilience matter as much as monthly affordability.'
+    },
+    {
+        quote: 'An affordable EMI can still be a weak decision if it wipes out your safety cushion.',
+        note: 'We are comparing affordability with survival capacity, not just bank eligibility.'
+    },
+    {
+        quote: 'Builder reputation reduces uncertainty, but it never replaces document and delay risk checks.',
+        note: 'We are weighing project signals, execution risk, and cost drag together.'
+    },
+    {
+        quote: 'The best property is not always the one you can buy. It is the one you can hold safely.',
+        note: 'Our agents are testing whether this purchase still works when life is slightly uncooperative.'
+    }
 ];
 
 // --- HELPERS ---
 function esc(s) { const d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
 function inr(n) { if (n == null) return '—'; return '₹' + Math.round(n).toLocaleString('en-IN'); }
 function pct(n) { return (n * 100).toFixed(1) + '%'; }
-function getNum(id) { 
+function getNum(id) {
     const val = document.getElementById(id)?.value || '';
-    return parseFloat(val.replace(/,/g, '')) || 0; 
+    return parseFloat(val.replace(/,/g, '')) || 0;
 }
 function getVal(id) { return document.getElementById(id)?.value || ''; }
 function preview(el, previewId) {
@@ -275,12 +275,12 @@ function updateFinancialHealth() {
     const emis = getNum('existing_emis'); const exp = getNum('monthly_expenses');
     const capacity = inc + sp - emis - exp;
     const el = document.getElementById('financial-health');
-    if(el) {
+    if (el) {
         el.textContent = inr(capacity);
         el.style.color = capacity > 20000 ? 'var(--green)' : capacity >= 5000 ? 'var(--yellow)' : 'var(--red)';
     }
     const fill = document.getElementById('health-fill-bar');
-    if(fill) {
+    if (fill) {
         const pct = Math.min(Math.max((capacity / (inc + sp > 0 ? inc + sp : 1)) * 100, 0), 100);
         fill.style.width = pct + '%';
         fill.style.background = capacity > 20000 ? 'var(--green)' : capacity >= 5000 ? 'var(--yellow)' : 'var(--red)';
@@ -302,36 +302,36 @@ let marketRatesData = null;
  * Caches result for 5 minutes. Updates #market-rates-banner.
  */
 async function fetchMarketRates() {
-  const banner = document.getElementById('market-rates-banner');
-  if (!banner) return;
-  const now = Date.now();
-  if (STATE.marketRatesCache && now - STATE.marketRatesFetchTime < 300000) {
-    displayMarketRates(STATE.marketRatesCache); return;
-  }
-  try {
-    const res = await fetch('/api/v1/market/rates');
-    if (!res.ok) return;
-    const data = await res.json();
-    STATE.marketRatesCache = data;
-    STATE.marketRatesFetchTime = now;
-    displayMarketRates(data);
-  } catch(e) { /* silent fail */ }
+    const banner = document.getElementById('market-rates-banner');
+    if (!banner) return;
+    const now = Date.now();
+    if (STATE.marketRatesCache && now - STATE.marketRatesFetchTime < 300000) {
+        displayMarketRates(STATE.marketRatesCache); return;
+    }
+    try {
+        const res = await fetch(`${API}/api/v1/market/rates`);
+        if (!res.ok) return;
+        const data = await res.json();
+        STATE.marketRatesCache = data;
+        STATE.marketRatesFetchTime = now;
+        displayMarketRates(data);
+    } catch (e) { /* silent fail */ }
 }
 
 function displayMarketRates(data) {
-  const banner = document.getElementById('market-rates-banner');
-  const text = document.getElementById('market-rates-text');
-  if (!banner || !text) return;
-  const floor = data.sbi_rate || data.min_rate || 8.5;
-  const ceil = data.max_rate || 9.9;
-  const repo = data.rbi_repo_rate || 6.5;
-  text.textContent = `Market rates: ${floor}–${ceil}% · RBI repo: ${repo}%`;
-  banner.style.display = 'flex';
-  const userRate = +document.getElementById('expected_interest_rate')?.value;
-  if (userRate && userRate < floor) {
-    text.style.color = 'var(--yellow)';
-    text.textContent += ' ⚠ Your rate may be below current market floor';
-  }
+    const banner = document.getElementById('market-rates-banner');
+    const text = document.getElementById('market-rates-text');
+    if (!banner || !text) return;
+    const floor = data.sbi_rate || data.min_rate || 8.5;
+    const ceil = data.max_rate || 9.9;
+    const repo = data.rbi_repo_rate || 6.5;
+    text.textContent = `Market rates: ${floor}–${ceil}% · RBI repo: ${repo}%`;
+    banner.style.display = 'flex';
+    const userRate = +document.getElementById('expected_interest_rate')?.value;
+    if (userRate && userRate < floor) {
+        text.style.color = 'var(--yellow)';
+        text.textContent += ' ⚠ Your rate may be below current market floor';
+    }
 }
 
 // === EMI PREVIEW ===
@@ -383,7 +383,7 @@ function updateEMIPreview() {
             const fill = Math.min(ratio, 0.6) / 0.6;
             path.style.strokeDashoffset = maxDash - (maxDash * fill);
             path.style.stroke = ratio < 0.3 ? 'var(--green)' :
-                                ratio < 0.45 ? 'var(--yellow)' : 'var(--red)';
+                ratio < 0.45 ? 'var(--yellow)' : 'var(--red)';
             label.textContent = (ratio * 100).toFixed(1) + '%';
             path.style.transition = 'stroke-dashoffset 0.4s ease, stroke 0.3s ease';
         }
@@ -671,7 +671,7 @@ function startA() {
     function t() { if (i > 0) setA(ids[i - 1], 'done'); if (i < ids.length) { setA(ids[i], 'running'); i++; _t = setTimeout(t, 4000); } }
     t();
 }
-function stopA() { clearTimeout(_t); stopLoadingQuotes(); ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(id => setA(id, 'done')); }
+function stopA() { clearTimeout(_t); stopLoadingQuotes();['a1', 'a2', 'a3', 'a4', 'a5', 'a6'].forEach(id => setA(id, 'done')); }
 
 function showErr(m) { const el = document.getElementById('err'); el.style.display = 'block'; el.textContent = '⚠ ' + m; window.scrollTo(0, 0); }
 
@@ -681,7 +681,7 @@ async function submitAnalysis() {
     lastInput = body;
 
     if (STATE.visualInspectionResult) {
-      body.visual_inspection = STATE.visualInspectionResult;
+        body.visual_inspection = STATE.visualInspectionResult;
     }
 
     document.getElementById('form-section').style.display = 'none';
@@ -890,21 +890,21 @@ function renderCashflowSection(computed = {}, financial = {}) {
             <div class="metric-label" style="margin-top:20px;">Money Flow Snapshot</div>
             <div class="cashflow-stack">
                 ${segments.map(segment => {
-                    const share = household > 0 ? (segment.value / household) * 100 : 0;
-                    return `<button type="button" class="cashflow-segment" data-cash-segment data-label="${esc(segment.label)}" data-value="${segment.value}" data-share="${share.toFixed(1)}" style="width:${Math.max(share, 8)}%;background:${segment.color};">
+        const share = household > 0 ? (segment.value / household) * 100 : 0;
+        return `<button type="button" class="cashflow-segment" data-cash-segment data-label="${esc(segment.label)}" data-value="${segment.value}" data-share="${share.toFixed(1)}" style="width:${Math.max(share, 8)}%;background:${segment.color};">
                         <span class="cashflow-segment-inner"><span>${esc(segment.label)}</span><span class="cashflow-segment-value">${share.toFixed(0)}%</span></span>
                     </button>`;
-                }).join('')}
+    }).join('')}
             </div>
             <div class="cashflow-details">
                 ${segments.map(segment => {
-                    const share = household > 0 ? (segment.value / household) * 100 : 0;
-                    return `<div class="cashflow-row">
+        const share = household > 0 ? (segment.value / household) * 100 : 0;
+        return `<div class="cashflow-row">
                         <div><div class="cashflow-row-label">${esc(segment.label)}</div><div class="cashflow-row-hint">${esc(segment.hint)}</div></div>
                         <div class="cashflow-row-amount">${inr(segment.value)}</div>
                         <div class="cashflow-row-share">${share.toFixed(1)}% of income</div>
                     </div>`;
-                }).join('')}
+    }).join('')}
             </div>
         </div>`;
 }
@@ -1086,12 +1086,12 @@ function renderReport(r) {
     const runway = c.emergency_runway_months || 0;
     const dpR = c.down_payment_to_savings_ratio || 0;
 
-    try { document.getElementById('r-cashflow').innerHTML = renderCashflowSection(c, lastInput?.financial || {}); } catch(e) { document.getElementById('r-cashflow').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('renderCashflowSection failed:', e); }
-    try { document.getElementById('r-scorecard').innerHTML = renderScorecardSection(r, c, emiR, runway, dpR); } catch(e) { document.getElementById('r-scorecard').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('renderScorecardSection failed:', e); }
+    try { document.getElementById('r-cashflow').innerHTML = renderCashflowSection(c, lastInput?.financial || {}); } catch (e) { document.getElementById('r-cashflow').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('renderCashflowSection failed:', e); }
+    try { document.getElementById('r-scorecard').innerHTML = renderScorecardSection(r, c, emiR, runway, dpR); } catch (e) { document.getElementById('r-scorecard').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('renderScorecardSection failed:', e); }
 
     try {
-    if (c.true_total_acquisition_cost) {
-        document.getElementById('r-tco').innerHTML = `
+        if (c.true_total_acquisition_cost) {
+            document.getElementById('r-tco').innerHTML = `
             <div class="dtable-shell">
                 <table class="dtable">
                     <tr><td>Base Property Price</td><td>${inr(lastInput?.property?.property_price)}</td></tr>
@@ -1102,12 +1102,12 @@ function renderReport(r) {
                 </table>
             </div>`;
 
-    } else {
-        document.getElementById('r-tco').parentElement.style.display = 'none';
-    }
-    } catch(e) { document.getElementById('r-tco').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-tco failed:', e); }
+        } else {
+            document.getElementById('r-tco').parentElement.style.display = 'none';
+        }
+    } catch (e) { document.getElementById('r-tco').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-tco failed:', e); }
 
-    try { 
+    try {
         document.getElementById('r-stress').innerHTML = (r.stress_scenarios || []).map(s => `
             <div class="p-card stress-card ${s.can_survive ? 'pass' : 'fail'}">
                 <div class="p-card-label">${esc(startCase(s.name))}</div>
@@ -1115,24 +1115,59 @@ function renderReport(r) {
                 <div class="p-card-meta">${s.can_survive ? 'Survives: Buffer holds.' : 'At Risk: Scenario breaks budget.'}</div>
                 ${(s.name || '').includes('job_loss') ? '<div class="ponr-timeline" id="ponr-container" style="margin-top:12px;"></div>' : ''}
             </div>`).join('');
-        document.getElementById('r-stress').insertAdjacentHTML('afterbegin', `<div class="p-card" style="grid-column: 1 / -1; margin-bottom: 0;"><div class="p-card-meta" style="font-size:14px; color:var(--text);">${esc(getStressSummary(r.stress_scenarios || []))}</div></div>`); 
-        animateStressCards(); 
-    } catch(e) { document.getElementById('r-stress').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-stress failed:', e); }
+        document.getElementById('r-stress').insertAdjacentHTML('afterbegin', `<div class="p-card" style="grid-column: 1 / -1; margin-bottom: 0;"><div class="p-card-meta" style="font-size:14px; color:var(--text);">${esc(getStressSummary(r.stress_scenarios || []))}</div></div>`);
+        animateStressCards();
+    } catch (e) { document.getElementById('r-stress').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-stress failed:', e); }
 
 
     try {
-    if (r.path_to_safe) {
-        const ps = document.getElementById('r-path-to-safe');
-        ps.style.display = 'block';
-        ps.innerHTML = `<div class="rcard" style="border-color:var(--green);"><div style="font-family:var(--font-mono); font-size:12px; color:var(--green); letter-spacing:1px; margin-bottom:16px;">Path to Safe</div><div style="font-size:14px;color:var(--text); line-height:1.7;">To achieve a SAFE verdict, you must either increase your down payment by <strong style="color:var(--green)">${inr(r.path_to_safe.additional_down_payment_needed)}</strong> or reduce the property price to <strong style="color:var(--green)">${inr(r.path_to_safe.max_viable_property_price)}</strong>. At your current savings rate, gathering this extra down payment will take approximately <strong style="color:var(--text)">${r.path_to_safe.months_to_save_at_current_rate.toFixed(1)} months</strong>.</div></div>`;
-    } else {
-        document.getElementById('r-path-to-safe').style.display = 'none';
-    }
-    } catch(e) { console.error('r-path-to-safe failed:', e); }
+        if (r.path_to_safe) {
+            const ps = document.getElementById('r-path-to-safe');
+            ps.style.display = 'block';
+            ps.innerHTML = `<div class="rcard" style="border-color:var(--green);"><div style="font-family:var(--font-mono); font-size:12px; color:var(--green); letter-spacing:1px; margin-bottom:16px;">Path to Safe</div><div style="font-size:14px;color:var(--text); line-height:1.7;">To achieve a SAFE verdict, you must either increase your down payment by <strong style="color:var(--green)">${inr(r.path_to_safe.additional_down_payment_needed)}</strong> or reduce the property price to <strong style="color:var(--green)">${inr(r.path_to_safe.max_viable_property_price)}</strong>. At your current savings rate, gathering this extra down payment will take approximately <strong style="color:var(--text)">${r.path_to_safe.months_to_save_at_current_rate.toFixed(1)} months</strong>.</div></div>`;
+        } else {
+            document.getElementById('r-path-to-safe').style.display = 'none';
+        }
+    } catch (e) { console.error('r-path-to-safe failed:', e); }
 
-    try { const pa = r.property_assessment || {}; document.getElementById('r-property').innerHTML = renderPropertyAssessment(pa); } catch(e) { document.getElementById('r-property').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-property failed:', e); }
+    try { const pa = r.property_assessment || {}; document.getElementById('r-property').innerHTML = renderPropertyAssessment(pa); } catch (e) { document.getElementById('r-property').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-property failed:', e); }
 
-    try { const rvb = r.rent_vs_buy || {}; document.getElementById('r-rvb').innerHTML = `<div class="bank-email-insight" style="display:block; margin-bottom:18px;">${(c.rent_vs_buy_break_even_years || 0) > 7 ? 'The break-even is long, so buying only makes sense if you plan to stay and hold through the cycle.' : 'The buy case catches up relatively faster, which improves the ownership story if the rest of the audit also holds.'}</div><div class="rvb-compare"><div class="rvb-box rent"><div class="rvb-box-label">If You Rent</div><div class="rvb-box-val">${inr(rvb.equivalent_monthly_rent)}</div></div><div class="rvb-box buy"><div class="rvb-box-label">If You Buy</div><div class="rvb-box-val">${inr(rvb.buying_monthly_cost)}</div></div></div><div class="rvb-diff">Break-even is <strong>${(c.rent_vs_buy_break_even_years || 0).toFixed(1)} years</strong>.</div>`; } catch(e) { document.getElementById('r-rvb').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-rvb failed:', e); }
+    try {
+        const rvb = r.rent_vs_buy || {};
+        const breakEven = (c.rent_vs_buy_break_even_years || 0).toFixed(1);
+        const isLongBreakEven = parseFloat(breakEven) > 7;
+        const insightLine = isLongBreakEven
+            ? 'Break-even is long — buying only makes financial sense if you plan to stay 7+ years.'
+            : 'The buy case catches up relatively quickly — ownership improves if you hold through the cycle.';
+        const pct = Math.min(100, Math.round((parseFloat(breakEven) / 15) * 100));
+        document.getElementById('r-rvb').innerHTML = `
+        <div class="rvb-v2">
+            <div class="rvb-cols">
+                <div class="rvb-col rvb-col-rent">
+                    <div class="rvb-col-label">If You Rent</div>
+                    <div class="rvb-col-num">${inr(rvb.equivalent_monthly_rent)}</div>
+                    <div class="rvb-col-sub">per month</div>
+                </div>
+                <div class="rvb-divider-v">
+                    <span class="rvb-vs-badge">VS</span>
+                </div>
+                <div class="rvb-col rvb-col-buy">
+                    <div class="rvb-col-label">If You Buy</div>
+                    <div class="rvb-col-num">${inr(rvb.buying_monthly_cost)}</div>
+                    <div class="rvb-col-sub">monthly ownership cost</div>
+                </div>
+            </div>
+            <div class="rvb-breakeven-row">
+                <div class="rvb-breakeven-label">Break-even point</div>
+                <div class="rvb-breakeven-track">
+                    <div class="rvb-breakeven-fill" style="width:${pct}%"></div>
+                    <span class="rvb-breakeven-pin" style="left:${pct}%">${breakEven} yrs</span>
+                </div>
+                <div class="rvb-breakeven-range"><span>0 yrs</span><span>15 yrs</span></div>
+            </div>
+            <div class="rvb-insight-line ${isLongBreakEven ? 'rvb-insight-warn' : 'rvb-insight-ok'}">${insightLine}</div>
+        </div>`;
+    } catch (e) { document.getElementById('r-rvb').innerHTML = '<div class="empty-state-note">Section unavailable</div>'; console.error('r-rvb failed:', e); }
 
     function safeSetHTML(id, html) {
         const el = document.getElementById(id);
@@ -1140,46 +1175,107 @@ function renderReport(r) {
         else console.warn(`Element #${id} not found in DOM`);
     }
 
-    try { safeSetHTML('r-challenges', renderAccordionSection(
-        'These are the weak links in the story that buyers usually ignore when they are already emotionally committed.',
-        (r.challenged_assumptions || []).map(item => ({
-            title: startCase(item.severity),
-            summary: item.challenge,
-            details: [
-                { icon: '!', status: startCase(item.severity), zone: item.severity === 'critical' ? 'danger' : item.severity === 'high' ? 'warn' : 'info', text: item.impact || item.challenge },
-                { icon: '?', text: item.challenge }
-            ]
-        })),
-        'No explicit challenged assumptions were returned, which usually means the run found fewer high-confidence contradictions.'
-    )); } catch(e) { console.error('r-challenges failed:', e); }
+    try {
+        safeSetHTML('r-challenges', renderAccordionSection(
+            'These are the weak links in the story that buyers usually ignore when they are already emotionally committed.',
+            (r.challenged_assumptions || []).map(item => ({
+                title: startCase(item.severity),
+                summary: item.challenge,
+                details: [
+                    { icon: '!', status: startCase(item.severity), zone: item.severity === 'critical' ? 'danger' : item.severity === 'high' ? 'warn' : 'info', text: item.impact || item.challenge },
+                    { icon: '?', text: item.challenge }
+                ]
+            })),
+            'No explicit challenged assumptions were returned, which usually means the run found fewer high-confidence contradictions.'
+        ));
+    } catch (e) { console.error('r-challenges failed:', e); }
 
-    try { safeSetHTML('r-reasons', renderAccordionSection(
-        'These are the few points carrying the most weight in the verdict, so treat them as the real decision drivers.',
-        (r.top_reasons || []).map(reason => ({ title: startCase(reason.split('.')[0] || reason), summary: reason, details: [{ icon: '•', text: reason }] })),
-        'Top reasons are still being synthesized for this report.'
-    )); } catch(e) { console.error('r-reasons failed:', e); }
+    try {
+        const reasons = (r.top_reasons || []).slice(0, 4);
+        if (!reasons.length) {
+            safeSetHTML('r-reasons', renderEmptyState('Top reasons are still being synthesized.'));
+        } else {
+            const severityMeta = [
+                { bg: 'var(--red-bg)', border: 'var(--red-border)', dot: 'var(--red)', label: 'Critical' },
+                { bg: 'var(--yellow-bg)', border: 'var(--yellow-border)', dot: 'var(--yellow)', label: 'High' },
+                { bg: 'rgba(241,235,217,0.4)', border: 'var(--border)', dot: 'var(--text-muted)', label: 'Note' },
+                { bg: 'rgba(241,235,217,0.4)', border: 'var(--border)', dot: 'var(--text-muted)', label: 'Note' },
+            ];
+            const cards = reasons.map((reason, i) => {
+                const meta = severityMeta[Math.min(i, 3)];
+                const titleRaw = reason.split('.')[0] || reason;
+                const titleClean = titleRaw.length > 60 ? titleRaw.slice(0, 57) + '…' : titleRaw;
+                const bodyText = reason.length > titleRaw.length + 1 ? reason.slice(titleRaw.length + 1).trim() : reason;
+                return `<div class="verdict-driver-card" style="background:${meta.bg};border:1px solid ${meta.border};border-radius:10px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:${meta.dot};flex-shrink:0;margin-top:6px;display:block;"></span>
+                    <div style="min-width:0;">
+                        <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px;line-height:1.3;">${esc(titleClean)}</div>
+                        ${bodyText && bodyText !== titleClean ? `<div style="font-size:13px;color:var(--text-dim);line-height:1.55;">${esc(bodyText)}</div>` : ''}
+                    </div>
+                    <span style="font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:20px;background:${meta.dot};color:#fff;flex-shrink:0;margin-top:2px;opacity:0.85;">${meta.label}</span>
+                </div>`;
+            }).join('');
+            const hasMore = (r.top_reasons || []).length > 4;
+            safeSetHTML('r-reasons', `<div style="display:flex;flex-direction:column;gap:8px;">${cards}</div>${hasMore ? `<button type="button" class="btn-text" style="margin-top:12px;font-size:13px;" onclick="this.previousElementSibling.innerHTML += ${JSON.stringify((r.top_reasons || []).slice(4).map((reason, i) => { const titleRaw = reason.split('.')[0] || reason; const body = reason.length > titleRaw.length + 1 ? reason.slice(titleRaw.length + 1).trim() : reason; return `<div class=\"verdict-driver-card\" style=\"background:rgba(241,235,217,0.4);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;gap:12px;\"><span style=\"width:8px;height:8px;border-radius:50%;background:var(--text-muted);flex-shrink:0;margin-top:6px;display:block;\"></span><div><div style=\"font-weight:700;font-size:13px;\">${esc(titleRaw)}</div>${body ? `<div style=\"font-size:13px;color:var(--text-dim);\">${esc(body)}</div>` : ''}</div></div>`; }).join(''))};this.remove()">View All Factors ↓</button>` : ''}`);
+        }
+    } catch (e) { console.error('r-reasons failed:', e); }
 
-    try { safeSetHTML('r-actions', renderAccordionSection(
-        'The best next move is usually to reduce irreversible risk before negotiating on emotion.',
-        (r.recommended_actions || []).map(action => ({ title: startCase(action.split('.')[0] || action), summary: action, details: [{ icon: '→', text: action }] })),
-        'No action list was returned for this scenario.'
-    )); } catch(e) { console.error('r-actions failed:', e); }
+    try {
+        const actions = r.recommended_actions || [];
+        if (!actions.length) {
+            safeSetHTML('r-actions', renderEmptyState('No action list was returned for this scenario.'));
+        } else {
+            const priorityIcons = ['🔴', '🟡', '🔵', '⚪'];
+            const priorityLabels = ['Do first', 'Do soon', 'Consider', 'Optional'];
+            const rows = actions.map((action, i) => {
+                const titleRaw = action.split('.')[0] || action;
+                const detail = action.length > titleRaw.length + 1 ? action.slice(titleRaw.length + 1).trim() : '';
+                const p = Math.min(i, 3);
+                return `<div class="action-row" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);transition:background 0.15s;">
+                    <span style="font-size:16px;flex-shrink:0;line-height:1;" aria-hidden="true">${priorityIcons[p]}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:13px;color:var(--text);line-height:1.3;">${esc(titleRaw)}</div>
+                        ${detail ? `<div style="font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.5;">${esc(detail)}</div>` : ''}
+                    </div>
+                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);flex-shrink:0;white-space:nowrap;">${priorityLabels[p]}</span>
+                </div>`;
+            }).join('');
+            safeSetHTML('r-actions', `<div style="display:flex;flex-direction:column;gap:6px;">${rows}</div>`);
+        }
+    } catch (e) { console.error('r-actions failed:', e); }
 
-    try { safeSetHTML('r-reasoning-insight', `<strong>Read the narrative only after the summary cards.</strong>${esc(getAffordabilitySummary(surplus, emiR, runway))}<div style="margin-top:10px;">This section preserves the full audit, but the summary cards above should do most of the decision work.</div>`); } catch(e) { console.error('r-reasoning-insight failed:', e); }
+    try { safeSetHTML('r-reasoning-insight', `<strong>Read the narrative only after the summary cards.</strong>${esc(getAffordabilitySummary(surplus, emiR, runway))}<div style="margin-top:10px;">This section preserves the full audit, but the summary cards above should do most of the decision work.</div>`); } catch (e) { console.error('r-reasoning-insight failed:', e); }
 
-    try { safeSetHTML('r-reasoning', r.full_reasoning ? `<div class="rcard" style="padding:20px; line-height:1.8;">${esc(r.full_reasoning).replace(/\n/g, '<br>')}</div>` : renderEmptyState('Full reasoning was not included in this response.')); } catch(e) { console.error('r-reasoning failed:', e); }
+    try { safeSetHTML('r-reasoning', r.full_reasoning ? `<div class="rcard" style="padding:20px; line-height:1.8;">${esc(r.full_reasoning).replace(/\n/g, '<br>')}</div>` : renderEmptyState('Full reasoning was not included in this response.')); } catch (e) { console.error('r-reasoning failed:', e); }
 
-    try { safeSetHTML('r-blind', renderAccordionSection(
-        'These are the important gaps in the current decision frame that could distort the final call.',
-        (r.blind_spots || []).map(item => ({ title: startCase(item), summary: item, details: [{ icon: '◌', status: 'Attention', zone: 'warn', text: item }] })),
-        'No blind spots were flagged in this run.'
-    )); } catch(e) { console.error('r-blind failed:', e); }
+    try {
+        const blindSpots = r.blind_spots || [];
+        if (!blindSpots.length) {
+            safeSetHTML('r-blind', renderEmptyState('No blind spots were flagged in this run.'));
+        } else {
+            const alerts = blindSpots.map(item => {
+                const titleRaw = item.split('.')[0] || item;
+                const body = item.length > titleRaw.length + 1 ? item.slice(titleRaw.length + 1).trim() : item;
+                const hasConsequence = body && body !== titleRaw;
+                return `<div class="blind-alert" style="display:flex;gap:12px;padding:13px 16px;background:rgba(202,138,4,0.06);border:1px solid rgba(202,138,4,0.22);border-radius:9px;align-items:flex-start;">
+                    <span style="font-size:15px;flex-shrink:0;margin-top:1px;">⚑</span>
+                    <div>
+                        <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:${hasConsequence ? '4px' : '0'};">${esc(titleRaw)}</div>
+                        ${hasConsequence ? `<div style="font-size:13px;color:var(--text-dim);line-height:1.55;">${esc(body)}</div>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+            safeSetHTML('r-blind', `<div style="display:flex;flex-direction:column;gap:7px;">${alerts}</div>`);
+        }
+    } catch (e) { console.error('r-blind failed:', e); }
 
-    try { safeSetHTML('r-emo', renderAccordionSection(
-        'Signals that the choice may be driven by urgency, sunk cost, optimism, or confirmation-seeking.',
-        (r.emotional_flags || []).map(item => ({ title: startCase(item), summary: item, details: [{ icon: '⚑', status: 'Bias Risk', zone: 'warn', text: item }] })),
-        'No cognitive or emotional flags were returned.'
-    )); } catch(e) { console.error('r-emo failed:', e); }
+    try {
+        safeSetHTML('r-emo', renderAccordionSection(
+            'Signals that the choice may be driven by urgency, sunk cost, optimism, or confirmation-seeking.',
+            (r.emotional_flags || []).map(item => ({ title: startCase(item), summary: item, details: [{ icon: '⚑', status: 'Bias Risk', zone: 'warn', text: item }] })),
+            'No cognitive or emotional flags were returned.'
+        ));
+    } catch (e) { console.error('r-emo failed:', e); }
 
     let covMsg = "";
     if (r.benchmark_coverage?.coverage_level === "default") covMsg = `<span style="color:var(--red)">⚠ ${esc(r.benchmark_coverage.warning)}</span> · `;
@@ -1441,6 +1537,45 @@ function loadDemoScenario() {
     goStep(1);
     updateFinancialHealth();
     updateEMIPreview();
+}
+
+async function sendReportToWhatsApp() {
+    const phoneInput = document.getElementById('wa-phone-input');
+    const btn = document.getElementById('wa-send-btn');
+    const status = document.getElementById('wa-send-status');
+    const raw = (phoneInput?.value || '').replace(/\D/g, '');
+    if (raw.length !== 10) {
+        status.style.display = 'block';
+        status.className = 'wa-send-status wa-status-error';
+        status.textContent = 'Please enter a valid 10-digit Indian mobile number.';
+        return;
+    }
+    const phone = '91' + raw;
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    status.style.display = 'none';
+    try {
+        const res = await fetch(`${API}/api/v1/whatsapp/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone_number: phone, report: lastReport, share_url: currentShareUrl || '' }),
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'sent') {
+            status.style.display = 'block';
+            status.className = 'wa-send-status wa-status-ok';
+            status.textContent = '✓ Report sent to +91 ' + raw.slice(0, 5) + 'XXXXX';
+            btn.textContent = 'Sent ✓';
+        } else {
+            throw new Error(data.detail || 'Send failed');
+        }
+    } catch (err) {
+        status.style.display = 'block';
+        status.className = 'wa-send-status wa-status-error';
+        status.textContent = err.message.includes('WhatsApp') ? err.message : 'Could not send — check WhatsApp configuration.';
+        btn.disabled = false;
+        btn.textContent = 'Send Report';
+    }
 }
 
 function shareWhatsApp() {
@@ -1882,7 +2017,7 @@ async function uploadLoanLetter(input) {
                     </table>
                     ${hasAutoFill ? (() => { const autoFillId = 'af_' + Date.now() + '_' + Math.random().toString(36).slice(2); window[autoFillId] = d.auto_fill || {}; return `<button onclick="applyLoanAutoFill(window['${autoFillId}'])" style="margin-top:10px;width:100%;padding:8px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:11px;cursor:pointer">Apply to Form →</button>`; })() : ''}
                     ${d.sanctioned_amount && lastInput?.property?.property_price ?
-                        `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+                    `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">
                         Down Payment Needed: ${inr(Math.max(0, lastInput.property.property_price - d.sanctioned_amount))}
                         </div>` : ''}
                 </div>`;
@@ -1969,8 +2104,8 @@ function renderOcCcStatus(occc) {
                 ${esc(occc.overall_note || '')}
             </div>
             ${(occc.risk_flags || []).map(f =>
-                `<div style="font-size:11px;color:var(--yellow);margin-top:3px">⚠ ${esc(f)}</div>`
-            ).join('')}
+        `<div style="font-size:11px;color:var(--yellow);margin-top:3px">⚠ ${esc(f)}</div>`
+    ).join('')}
         </div>`;
 }
 
@@ -1981,11 +2116,11 @@ function renderOcCcStatus(occc) {
  * @param {HTMLElement} el @param {string} verdict safe|risky|reconsider
  */
 function renderVerdictPulse(el, verdict) {
-  if (!el) return;
-  el.classList.remove('safe', 'risky', 'reconsider');
-  el.classList.add(verdict);
-  const conf = document.getElementById('conf-fill');
-  if (conf) setTimeout(() => conf.style.width = conf.dataset.target, 100);
+    if (!el) return;
+    el.classList.remove('safe', 'risky', 'reconsider');
+    el.classList.add(verdict);
+    const conf = document.getElementById('conf-fill');
+    if (conf) setTimeout(() => conf.style.width = conf.dataset.target, 100);
 }
 
 /**
@@ -1994,14 +2129,14 @@ function renderVerdictPulse(el, verdict) {
  * @param {HTMLElement} container @param {number} runwayMonths
  */
 function renderSavingsShield(container, runwayMonths) {
-  if (!container) return;
-  const months = runwayMonths || 0;
-  const fillRatio = Math.min(months / 12, 1);
-  const fillY = 100 - fillRatio * 100;
-  const color = months >= 6 ? 'var(--green)' : months >= 3 ? 'var(--yellow)' : 'var(--red)';
-  const bgColor = months >= 6 ? 'var(--green-bg)' : months >= 3 ? 'var(--yellow-bg)' : 'var(--red-bg)';
-  // Crack paths for degraded states
-  const cracks = months < 6 ? `
+    if (!container) return;
+    const months = runwayMonths || 0;
+    const fillRatio = Math.min(months / 12, 1);
+    const fillY = 100 - fillRatio * 100;
+    const color = months >= 6 ? 'var(--green)' : months >= 3 ? 'var(--yellow)' : 'var(--red)';
+    const bgColor = months >= 6 ? 'var(--green-bg)' : months >= 3 ? 'var(--yellow-bg)' : 'var(--red-bg)';
+    // Crack paths for degraded states
+    const cracks = months < 6 ? `
     <path d="M40 30 L50 50 L38 65" stroke="${color}" stroke-width="1.5" fill="none" opacity="0.7"/>
     <path d="M60 25 L55 45 L65 58" stroke="${color}" stroke-width="1.5" fill="none" opacity="0.7"/>
     ${months < 3 ? `
@@ -2010,7 +2145,7 @@ function renderSavingsShield(container, runwayMonths) {
     <path d="M48 20 L44 35 L55 40" stroke="${color}" stroke-width="1" fill="none" opacity="0.4"/>
     ` : ''}
   ` : '';
-  container.innerHTML = `
+    container.innerHTML = `
     <svg viewBox="0 0 100 110" width="80" height="88" style="display:block;margin:0 auto">
       <defs>
         <clipPath id="shield-clip-${container.id || 'sh'}">
@@ -2039,28 +2174,28 @@ function renderSavingsShield(container, runwayMonths) {
  * @param {HTMLElement} container @param {Object} computed @param {Object} fin
  */
 function renderRiverFlow(container, computed, fin) {
-  if (!container) return;
-  const income = (fin.monthly_income || 0) + (fin.spouse_income || 0);
-  if (income <= 0) return;
-  const emi = computed.monthly_emi || 0;
-  const maint = (computed.monthly_ownership_cost || emi) - emi;
-  const emis = fin.existing_emis || 0;
-  const exp = fin.monthly_expenses || 0;
-  const surplus = Math.max(income - emi - maint - emis - exp, 0);
-  const pct = v => Math.max((v / income) * 100, 2).toFixed(1);
-  const streams = [
-    { label: 'EMI', value: emi, color: 'var(--red)' },
-    { label: 'Maint', value: maint, color: 'var(--yellow)' },
-    { label: 'Expenses', value: exp, color: '#f97316' },
-    { label: 'Surplus', value: surplus, color: 'var(--green)' },
-  ].filter(s => s.value > 0);
-  let paths = '';
-  let yOff = 10;
-  streams.forEach((s, i) => {
-    const h = Math.max((s.value / income) * 80, 4);
-    const cy1 = yOff + h / 2;
-    const cx = i === streams.length - 1 ? 260 : 220;
-    paths += `
+    if (!container) return;
+    const income = (fin.monthly_income || 0) + (fin.spouse_income || 0);
+    if (income <= 0) return;
+    const emi = computed.monthly_emi || 0;
+    const maint = (computed.monthly_ownership_cost || emi) - emi;
+    const emis = fin.existing_emis || 0;
+    const exp = fin.monthly_expenses || 0;
+    const surplus = Math.max(income - emi - maint - emis - exp, 0);
+    const pct = v => Math.max((v / income) * 100, 2).toFixed(1);
+    const streams = [
+        { label: 'EMI', value: emi, color: 'var(--red)' },
+        { label: 'Maint', value: maint, color: 'var(--yellow)' },
+        { label: 'Expenses', value: exp, color: '#f97316' },
+        { label: 'Surplus', value: surplus, color: 'var(--green)' },
+    ].filter(s => s.value > 0);
+    let paths = '';
+    let yOff = 10;
+    streams.forEach((s, i) => {
+        const h = Math.max((s.value / income) * 80, 4);
+        const cy1 = yOff + h / 2;
+        const cx = i === streams.length - 1 ? 260 : 220;
+        paths += `
       <path d="M 60 50 C 120 50 140 ${cy1} ${cx} ${cy1}"
             stroke="${s.color}" stroke-width="${Math.max(h * 0.6, 2)}" fill="none"
             stroke-dasharray="200" stroke-dashoffset="200" opacity="0.85">
@@ -2070,16 +2205,16 @@ function renderRiverFlow(container, computed, fin) {
       </path>
       <text x="${cx + 8}" y="${cy1 + 4}" font-size="9" fill="${s.color}"
             font-family="'DM Mono', monospace">${s.label} ${pct(s.value)}%</text>`;
-    yOff += h + 4;
-  });
-  container.innerHTML = `
+        yOff += h + 4;
+    });
+    container.innerHTML = `
     <svg viewBox="0 0 300 100" width="100%" height="100" style="overflow:visible">
       <rect x="0" y="30" width="60" height="40" rx="4"
             fill="var(--accent-dim)" stroke="var(--accent)" stroke-width="1"/>
       <text x="30" y="52" text-anchor="middle" font-size="9" fill="var(--accent)"
             font-family="'DM Mono', monospace">INCOME</text>
       <text x="30" y="63" text-anchor="middle" font-size="7" fill="var(--text-muted)"
-            font-family="'DM Mono', monospace">${(income/100000).toFixed(1)}L</text>
+            font-family="'DM Mono', monospace">${(income / 100000).toFixed(1)}L</text>
       ${paths}
     </svg>`;
 }
@@ -2089,10 +2224,10 @@ function renderRiverFlow(container, computed, fin) {
  * @param {HTMLElement} container @param {number} emiRatio
  */
 function initDebtGravity(container, emiRatio) {
-  if (!container) return;
-  const deg = emiRatio < 0.25 ? -5 : emiRatio < 0.40 ? -15 :
-              emiRatio < 0.55 ? -28 : -45;
-  const svg = `<svg viewBox="0 0 120 60" style="width:120px;height:60px">
+    if (!container) return;
+    const deg = emiRatio < 0.25 ? -5 : emiRatio < 0.40 ? -15 :
+        emiRatio < 0.55 ? -28 : -45;
+    const svg = `<svg viewBox="0 0 120 60" style="width:120px;height:60px">
     <circle cx="60" cy="30" r="4" fill="var(--border-bright)"/>
     <line id="beam" x1="10" y1="30" x2="110" y2="30"
           stroke="var(--text-dim)" stroke-width="2"
@@ -2104,11 +2239,11 @@ function initDebtGravity(container, emiRatio) {
     <circle cx="95" cy="18" r="8" fill="var(--green-bg)"
             stroke="var(--green)" stroke-width="1.5"/>
   </svg>`;
-  container.innerHTML = svg;
-  setTimeout(() => {
-    const beam = container.querySelector('#beam');
-    if (beam) beam.style.transform = `rotate(${deg}deg)`;
-  }, 300);
+    container.innerHTML = svg;
+    setTimeout(() => {
+        const beam = container.querySelector('#beam');
+        if (beam) beam.style.transform = `rotate(${deg}deg)`;
+    }, 300);
 }
 
 /**
@@ -2118,27 +2253,27 @@ function initDebtGravity(container, emiRatio) {
  * @param {number} runwayMonths
  */
 function initBurnClock(svgId, runwayMonths) {
-  const fill = document.getElementById('burn-fill');
-  const num = document.getElementById('burn-num');
-  if (!fill || !num) return;
-  const maxMonths = 12;
-  const circumference = 201;
-  const ratio = Math.min(runwayMonths, maxMonths) / maxMonths;
-  const color = runwayMonths >= 6 ? 'var(--green)' :
-                runwayMonths >= 3 ? 'var(--yellow)' : 'var(--red)';
-  fill.style.stroke = color;
-  fill.style.transition = 'stroke-dashoffset 0.8s var(--anim-ease)';
-  let count = 0;
-  const target = Math.round(runwayMonths * 10) / 10;
-  const steps = 40;
-  const interval = setInterval(() => {
-    count++;
-    const p = count / steps;
-    const ease = 1 - Math.pow(1 - p, 3);
-    num.textContent = (ease * target).toFixed(1);
-    fill.style.strokeDashoffset = circumference - (circumference * ratio * ease);
-    if (count >= steps) { clearInterval(interval); num.textContent = target.toFixed(1); }
-  }, 800 / steps);
+    const fill = document.getElementById('burn-fill');
+    const num = document.getElementById('burn-num');
+    if (!fill || !num) return;
+    const maxMonths = 12;
+    const circumference = 201;
+    const ratio = Math.min(runwayMonths, maxMonths) / maxMonths;
+    const color = runwayMonths >= 6 ? 'var(--green)' :
+        runwayMonths >= 3 ? 'var(--yellow)' : 'var(--red)';
+    fill.style.stroke = color;
+    fill.style.transition = 'stroke-dashoffset 0.8s var(--anim-ease)';
+    let count = 0;
+    const target = Math.round(runwayMonths * 10) / 10;
+    const steps = 40;
+    const interval = setInterval(() => {
+        count++;
+        const p = count / steps;
+        const ease = 1 - Math.pow(1 - p, 3);
+        num.textContent = (ease * target).toFixed(1);
+        fill.style.strokeDashoffset = circumference - (circumference * ratio * ease);
+        if (count >= steps) { clearInterval(interval); num.textContent = target.toFixed(1); }
+    }, 800 / steps);
 }
 
 /**
@@ -2147,18 +2282,18 @@ function initBurnClock(svgId, runwayMonths) {
  * @param {HTMLElement} container @param {Object} scenario stress scenario object
  */
 function renderPointOfNoReturn(container, scenario) {
-  if (!container) return;
-  const months = Math.min(Math.max(Math.round(scenario.months_before_default || 6), 0), 6);
-  const survived = scenario.can_survive;
-  let segs = '';
-  for (let i = 1; i <= 6; i++) {
-    const color = survived ? 'var(--green)' :
-                  i <= months ? 'var(--yellow)' : 'var(--red)';
-    segs += `<div class="ponr-seg" style="background:${color};
+    if (!container) return;
+    const months = Math.min(Math.max(Math.round(scenario.months_before_default || 6), 0), 6);
+    const survived = scenario.can_survive;
+    let segs = '';
+    for (let i = 1; i <= 6; i++) {
+        const color = survived ? 'var(--green)' :
+            i <= months ? 'var(--yellow)' : 'var(--red)';
+        segs += `<div class="ponr-seg" style="background:${color};
       flex:1;height:8px;border-radius:2px;margin:0 2px;
       animation:card-enter 300ms ${i * 50}ms both"></div>`;
-  }
-  container.innerHTML = `
+    }
+    container.innerHTML = `
     <div style="display:flex;margin:10px 0 4px">${segs}</div>
     <div style="font-size:10px;font-family:var(--font-mono);
          color:var(--text-muted);display:flex;justify-content:space-between">
@@ -2174,50 +2309,50 @@ function renderPointOfNoReturn(container, scenario) {
  * @param {HTMLCanvasElement} canvas @param {number} surplus @param {number} income
  */
 function initHeartbeatGraph(canvas, surplus, income) {
-  if (!canvas) return;
-  onVisible(canvas, () => drawHeartbeat(canvas, surplus, income));
+    if (!canvas) return;
+    onVisible(canvas, () => drawHeartbeat(canvas, surplus, income));
 }
 
 function drawHeartbeat(canvas, surplus, income) {
-  canvas.width = canvas.offsetWidth || 300;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height || 80;
-  const ratio = Math.max(Math.min(surplus / Math.max(income, 1), 0.5), -0.3);
-  const beats = 12, beatW = W / beats;
-  const baseY = H * 0.7, spikeH = ratio * H * 1.2;
-  ctx.fillStyle = getComputedStyle(document.documentElement)
-    .getPropertyValue('--bg').trim() || '#080810';
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-  ctx.lineWidth = 1;
-  for (let y = H * 0.25; y < H; y += H * 0.25) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
-  let progress = 0;
-  const totalPoints = beats * 10;
-  const interval = setInterval(() => {
-    progress = Math.min(progress + 2, totalPoints);
-    ctx.clearRect(0, 0, W, H);
+    canvas.width = canvas.offsetWidth || 300;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height || 80;
+    const ratio = Math.max(Math.min(surplus / Math.max(income, 1), 0.5), -0.3);
+    const beats = 12, beatW = W / beats;
+    const baseY = H * 0.7, spikeH = ratio * H * 1.2;
     ctx.fillStyle = getComputedStyle(document.documentElement)
-      .getPropertyValue('--bg').trim() || '#080810';
+        .getPropertyValue('--bg').trim() || '#080810';
     ctx.fillRect(0, 0, W, H);
-    ctx.beginPath();
-    ctx.strokeStyle = surplus > 0 ? '#22c55e' : '#ef4444';
-    ctx.lineWidth = 2;
-    for (let b = 0; b < beats; b++) {
-      const bx = b * beatW;
-      const points = [[0, 0], [0.3, 0], [0.4, -0.3], [0.5, 1], [0.6, -0.2], [0.7, 0], [1, 0]];
-      points.forEach(([px, py], i) => {
-        const x = bx + px * beatW, y = baseY - py * spikeH;
-        const ptIdx = b * 10 + Math.round(px * 10);
-        if (ptIdx <= progress) {
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-        }
-      });
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth = 1;
+    for (let y = H * 0.25; y < H; y += H * 0.25) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
     }
-    ctx.stroke();
-    if (progress >= totalPoints) clearInterval(interval);
-  }, 1000 / totalPoints * 1.5);
+    let progress = 0;
+    const totalPoints = beats * 10;
+    const interval = setInterval(() => {
+        progress = Math.min(progress + 2, totalPoints);
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = getComputedStyle(document.documentElement)
+            .getPropertyValue('--bg').trim() || '#080810';
+        ctx.fillRect(0, 0, W, H);
+        ctx.beginPath();
+        ctx.strokeStyle = surplus > 0 ? '#22c55e' : '#ef4444';
+        ctx.lineWidth = 2;
+        for (let b = 0; b < beats; b++) {
+            const bx = b * beatW;
+            const points = [[0, 0], [0.3, 0], [0.4, -0.3], [0.5, 1], [0.6, -0.2], [0.7, 0], [1, 0]];
+            points.forEach(([px, py], i) => {
+                const x = bx + px * beatW, y = baseY - py * spikeH;
+                const ptIdx = b * 10 + Math.round(px * 10);
+                if (ptIdx <= progress) {
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+                }
+            });
+        }
+        ctx.stroke();
+        if (progress >= totalPoints) clearInterval(interval);
+    }, 1000 / totalPoints * 1.5);
 }
 
 /**
@@ -2225,12 +2360,12 @@ function drawHeartbeat(canvas, surplus, income) {
  * @param {NodeList} cards - All stress test card elements
  */
 function initRiskBurst(cards) {
-  [...cards].forEach((card, i) => {
-    if (card.classList.contains('fail') || card.dataset.survive === 'false') {
-      requestAnimationFrame(() =>
-        setTimeout(() => card.classList.add('burst-animate'), i * 150));
-    }
-  });
+    [...cards].forEach((card, i) => {
+        if (card.classList.contains('fail') || card.dataset.survive === 'false') {
+            requestAnimationFrame(() =>
+                setTimeout(() => card.classList.add('burst-animate'), i * 150));
+        }
+    });
 }
 
 /**
@@ -2239,53 +2374,53 @@ function initRiskBurst(cards) {
  * @param {Object} report @param {Object} rawInput
  */
 async function initTimelineScenarios(report, rawInput) {
-  const container = document.getElementById('r-timeline');
-  if (!container || !rawInput) return;
-  const fin = rawInput.financial || {};
-  const prop = rawInput.property || {};
-  const monthlySavings = Math.max(
-    (fin.monthly_income || 0) + (fin.spouse_income || 0) -
-    (fin.existing_emis || 0) - (fin.monthly_expenses || 0) -
-    (report.computed_numbers?.monthly_emi || 0), 0);
-  const base = `monthly_income=${fin.monthly_income || 0}&spouse_income=${fin.spouse_income || 0}&existing_emis=${fin.existing_emis || 0}&monthly_expenses=${fin.monthly_expenses || 0}&liquid_savings=${fin.liquid_savings || 0}&dependents=${fin.dependents || 0}&loan_tenure_years=${prop.loan_tenure_years || 20}&interest_rate=${prop.expected_interest_rate || 8.5}&carpet_area_sqft=${prop.carpet_area_sqft || 700}&buyer_gender=${prop.buyer_gender || 'male'}&is_ready_to_move=${prop.is_ready_to_move || true}&location_area=${encodeURIComponent(prop.location_area || '')}&`;
-  const scenarios = [
-    { id: 'ts-now', label: 'BUY NOW', dp: prop.down_payment_available, price: prop.property_price },
-    { id: 'ts-6mo', label: 'WAIT 6 MO', dp: (prop.down_payment_available || 0) + monthlySavings * 6, price: (prop.property_price || 0) * 1.025 },
-    { id: 'ts-1yr', label: 'WAIT 1 YR', dp: (prop.down_payment_available || 0) + monthlySavings * 12, price: (prop.property_price || 0) * 1.05 },
-  ];
-  try {
-    const results = await Promise.all(scenarios.map(s =>
-      fetch(`${API}/api/v1/calculate?${base}property_price=${s.price}&down_payment=${s.dp}`)
-        .then(r => r.ok ? r.json() : null).catch(() => null)
-    ));
-    let bestIdx = 0, bestRatio = Infinity;
-    results.forEach((r, i) => {
-      if (r && r.emi_to_income_ratio < bestRatio) { bestRatio = r.emi_to_income_ratio; bestIdx = i; }
-    });
-    const best = results[bestIdx];
-    const summaryEl = document.getElementById('timeline-summary');
-    if (summaryEl && best) {
-      const runwayLift = Math.max((results[2]?.emergency_runway_months || 0) - (results[0]?.emergency_runway_months || 0), 0);
-      const equityCost = Math.max((scenarios[2].price || 0) - (scenarios[0].price || 0), 0);
-      summaryEl.textContent = `Waiting 1 year could improve runway by ${runwayLift.toFixed(1)} months, but may cost about ${inr(equityCost)} more if prices rise as assumed.`;
-    }
-    scenarios.forEach((s, i) => {
-      const el = document.getElementById(s.id + '-metrics');
-      const track = document.getElementById(s.id);
-      if (!el || !results[i]) return;
-      const r = results[i];
-      const zone = r.emi_to_income_ratio < 0.3 ? 'var(--green)' : r.emi_to_income_ratio < 0.45 ? 'var(--yellow)' : 'var(--red)';
-      el.innerHTML = `
+    const container = document.getElementById('r-timeline');
+    if (!container || !rawInput) return;
+    const fin = rawInput.financial || {};
+    const prop = rawInput.property || {};
+    const monthlySavings = Math.max(
+        (fin.monthly_income || 0) + (fin.spouse_income || 0) -
+        (fin.existing_emis || 0) - (fin.monthly_expenses || 0) -
+        (report.computed_numbers?.monthly_emi || 0), 0);
+    const base = `monthly_income=${fin.monthly_income || 0}&spouse_income=${fin.spouse_income || 0}&existing_emis=${fin.existing_emis || 0}&monthly_expenses=${fin.monthly_expenses || 0}&liquid_savings=${fin.liquid_savings || 0}&dependents=${fin.dependents || 0}&loan_tenure_years=${prop.loan_tenure_years || 20}&interest_rate=${prop.expected_interest_rate || 8.5}&carpet_area_sqft=${prop.carpet_area_sqft || 700}&buyer_gender=${prop.buyer_gender || 'male'}&is_ready_to_move=${prop.is_ready_to_move || true}&location_area=${encodeURIComponent(prop.location_area || '')}&`;
+    const scenarios = [
+        { id: 'ts-now', label: 'BUY NOW', dp: prop.down_payment_available, price: prop.property_price },
+        { id: 'ts-6mo', label: 'WAIT 6 MO', dp: (prop.down_payment_available || 0) + monthlySavings * 6, price: (prop.property_price || 0) * 1.025 },
+        { id: 'ts-1yr', label: 'WAIT 1 YR', dp: (prop.down_payment_available || 0) + monthlySavings * 12, price: (prop.property_price || 0) * 1.05 },
+    ];
+    try {
+        const results = await Promise.all(scenarios.map(s =>
+            fetch(`${API}/api/v1/calculate?${base}property_price=${s.price}&down_payment=${s.dp}`)
+                .then(r => r.ok ? r.json() : null).catch(() => null)
+        ));
+        let bestIdx = 0, bestRatio = Infinity;
+        results.forEach((r, i) => {
+            if (r && r.emi_to_income_ratio < bestRatio) { bestRatio = r.emi_to_income_ratio; bestIdx = i; }
+        });
+        const best = results[bestIdx];
+        const summaryEl = document.getElementById('timeline-summary');
+        if (summaryEl && best) {
+            const runwayLift = Math.max((results[2]?.emergency_runway_months || 0) - (results[0]?.emergency_runway_months || 0), 0);
+            const equityCost = Math.max((scenarios[2].price || 0) - (scenarios[0].price || 0), 0);
+            summaryEl.textContent = `Waiting 1 year could improve runway by ${runwayLift.toFixed(1)} months, but may cost about ${inr(equityCost)} more if prices rise as assumed.`;
+        }
+        scenarios.forEach((s, i) => {
+            const el = document.getElementById(s.id + '-metrics');
+            const track = document.getElementById(s.id);
+            if (!el || !results[i]) return;
+            const r = results[i];
+            const zone = r.emi_to_income_ratio < 0.3 ? 'var(--green)' : r.emi_to_income_ratio < 0.45 ? 'var(--yellow)' : 'var(--red)';
+            el.innerHTML = `
         <div class="timeline-main" style="color:${zone}">${(r.emi_to_income_ratio * 100).toFixed(1)}%</div>
         <div class="metric-label">EMI / Income</div>
         <div class="timeline-meta">${r.emergency_runway_months?.toFixed(1)} months runway</div>
         <div class="timeline-meta">${inr(r.monthly_emi)} / month EMI</div>
         <div class="timeline-meta">${inr(s.price)} projected price</div>
         ${i === bestIdx ? '<div class="timeline-reco">Recommended</div>' : ''}`;
-      if (track) track.classList.toggle('recommended', i === bestIdx);
-    });
-    container.style.display = 'block';
-  } catch (e) { console.warn('Timeline scenarios failed:', e); }
+            if (track) track.classList.toggle('recommended', i === bestIdx);
+        });
+        container.style.display = 'block';
+    } catch (e) { console.warn('Timeline scenarios failed:', e); }
 }
 
 /**
@@ -2294,75 +2429,75 @@ async function initTimelineScenarios(report, rawInput) {
  * @param {HTMLCanvasElement} canvas @param {Object} computed @param {Object} rawInput
  */
 function drawNetWorthMountain(canvas, computed, rawInput) {
-  if (!canvas) return;
-  canvas.width = canvas.offsetWidth || 600;
-  const ctx = canvas.getContext('2d');
-  const styles = getComputedStyle(document.documentElement);
-  const bgColor = styles.getPropertyValue('--surface').trim() || '#ffffff';
-  const gridColor = styles.getPropertyValue('--border').trim() || '#e5e7eb';
-  const accentColor = styles.getPropertyValue('--yellow').trim() || '#ca8a04';
-  const mutedColor = styles.getPropertyValue('--text-muted').trim() || '#9ca3af';
-  const W = canvas.width, H = canvas.height || 200;
-  const fin = rawInput?.financial || {};
-  const prop = rawInput?.property || {};
-  const years = 10;
-  const pts = [];
-  let nw = (fin.liquid_savings || 0) - (prop.down_payment_available || 0);
-  const annualSurplus = Math.max(
-    ((fin.monthly_income || 0) + (fin.spouse_income || 0)) * 12 -
-    (computed.monthly_emi || 0) * 12 - (fin.monthly_expenses || 0) * 12, 0);
-  for (let y = 0; y <= years; y++) {
-    pts.push(nw);
-    nw += annualSurplus * Math.pow(1.08, y) * 0.7 +
-          (prop.property_price || 0) * 0.04;
-  }
-  const minV = Math.min(...pts), maxV = Math.max(...pts);
-  const pad = 30;
-  function toX(y) { return pad + (y / years) * (W - pad * 2); }
-  function toY(v) { return H - pad - ((v - minV) / (maxV - minV || 1)) * (H - pad * 2); }
-  ctx.fillStyle = bgColor;
-  ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = gridColor;
-  for (let i = 0; i <= 5; i++) {
-    ctx.beginPath();
-    ctx.moveTo(pad, pad + i * (H - pad * 2) / 5);
-    ctx.lineTo(W - pad, pad + i * (H - pad * 2) / 5);
-    ctx.stroke();
-  }
-  const propPts = Array.from({ length: years + 1 }, (_, y) => (prop.property_price || 0) * Math.pow(1.04, y));
-  const legend = document.getElementById('mountain-legend');
-  if (legend) {
-    legend.innerHTML = `
+    if (!canvas) return;
+    canvas.width = canvas.offsetWidth || 600;
+    const ctx = canvas.getContext('2d');
+    const styles = getComputedStyle(document.documentElement);
+    const bgColor = styles.getPropertyValue('--surface').trim() || '#ffffff';
+    const gridColor = styles.getPropertyValue('--border').trim() || '#e5e7eb';
+    const accentColor = styles.getPropertyValue('--yellow').trim() || '#ca8a04';
+    const mutedColor = styles.getPropertyValue('--text-muted').trim() || '#9ca3af';
+    const W = canvas.width, H = canvas.height || 200;
+    const fin = rawInput?.financial || {};
+    const prop = rawInput?.property || {};
+    const years = 10;
+    const pts = [];
+    let nw = (fin.liquid_savings || 0) - (prop.down_payment_available || 0);
+    const annualSurplus = Math.max(
+        ((fin.monthly_income || 0) + (fin.spouse_income || 0)) * 12 -
+        (computed.monthly_emi || 0) * 12 - (fin.monthly_expenses || 0) * 12, 0);
+    for (let y = 0; y <= years; y++) {
+        pts.push(nw);
+        nw += annualSurplus * Math.pow(1.08, y) * 0.7 +
+            (prop.property_price || 0) * 0.04;
+    }
+    const minV = Math.min(...pts), maxV = Math.max(...pts);
+    const pad = 30;
+    function toX(y) { return pad + (y / years) * (W - pad * 2); }
+    function toY(v) { return H - pad - ((v - minV) / (maxV - minV || 1)) * (H - pad * 2); }
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = gridColor;
+    for (let i = 0; i <= 5; i++) {
+        ctx.beginPath();
+        ctx.moveTo(pad, pad + i * (H - pad * 2) / 5);
+        ctx.lineTo(W - pad, pad + i * (H - pad * 2) / 5);
+        ctx.stroke();
+    }
+    const propPts = Array.from({ length: years + 1 }, (_, y) => (prop.property_price || 0) * Math.pow(1.04, y));
+    const legend = document.getElementById('mountain-legend');
+    if (legend) {
+        legend.innerHTML = `
       <span style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:10px;border-radius:999px;background:${accentColor};display:inline-block"></span>Projected net worth</span>
       <span style="display:flex;align-items:center;gap:8px;"><span style="width:10px;height:2px;background:rgba(124,106,247,0.45);display:inline-block"></span>Property value trend</span>
     `;
-  }
-  ctx.beginPath(); ctx.strokeStyle = 'rgba(124,106,247,0.3)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
-  propPts.forEach((v, y) => y === 0 ? ctx.moveTo(toX(y), toY(v)) : ctx.lineTo(toX(y), toY(v)));
-  ctx.stroke(); ctx.setLineDash([]);
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, 'rgba(124,106,247,0.2)'); grad.addColorStop(1, 'rgba(124,106,247,0)');
-  ctx.beginPath(); ctx.moveTo(toX(0), toY(pts[0]));
-  pts.forEach((v, y) => ctx.lineTo(toX(y), toY(v)));
-  ctx.lineTo(toX(years), H - pad); ctx.lineTo(toX(0), H - pad); ctx.closePath();
-  ctx.fillStyle = grad; ctx.fill();
-  let prog = 0;
-  const animate = setInterval(() => {
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = bgColor; ctx.fillRect(0, 0, W, H);
-    ctx.beginPath(); ctx.strokeStyle = accentColor; ctx.lineWidth = 2.5; ctx.setLineDash([]);
-    pts.slice(0, Math.ceil(prog) + 1).forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
-    ctx.stroke();
-    prog = Math.min(prog + 0.15, years);
-    if (prog >= years) {
-      clearInterval(animate);
-      ctx.fillStyle = mutedColor; ctx.font = `10px 'DM Mono'`;
-      ctx.fillText('Year 0', toX(0) - 10, H - 8);
-      ctx.fillText('Year 10', toX(10) - 20, H - 8);
-      ctx.fillStyle = accentColor;
-      ctx.fillText(inr(pts[years]), toX(years) - 30, toY(pts[years]) - 8);
     }
-  }, 1200 / years / 8);
+    ctx.beginPath(); ctx.strokeStyle = 'rgba(124,106,247,0.3)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    propPts.forEach((v, y) => y === 0 ? ctx.moveTo(toX(y), toY(v)) : ctx.lineTo(toX(y), toY(v)));
+    ctx.stroke(); ctx.setLineDash([]);
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, 'rgba(124,106,247,0.2)'); grad.addColorStop(1, 'rgba(124,106,247,0)');
+    ctx.beginPath(); ctx.moveTo(toX(0), toY(pts[0]));
+    pts.forEach((v, y) => ctx.lineTo(toX(y), toY(v)));
+    ctx.lineTo(toX(years), H - pad); ctx.lineTo(toX(0), H - pad); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    let prog = 0;
+    const animate = setInterval(() => {
+        ctx.clearRect(0, 0, W, H);
+        ctx.fillStyle = bgColor; ctx.fillRect(0, 0, W, H);
+        ctx.beginPath(); ctx.strokeStyle = accentColor; ctx.lineWidth = 2.5; ctx.setLineDash([]);
+        pts.slice(0, Math.ceil(prog) + 1).forEach((v, i) => i === 0 ? ctx.moveTo(toX(i), toY(v)) : ctx.lineTo(toX(i), toY(v)));
+        ctx.stroke();
+        prog = Math.min(prog + 0.15, years);
+        if (prog >= years) {
+            clearInterval(animate);
+            ctx.fillStyle = mutedColor; ctx.font = `10px 'DM Mono'`;
+            ctx.fillText('Year 0', toX(0) - 10, H - 8);
+            ctx.fillText('Year 10', toX(10) - 20, H - 8);
+            ctx.fillStyle = accentColor;
+            ctx.fillText(inr(pts[years]), toX(years) - 30, toY(pts[years]) - 8);
+        }
+    }, 1200 / years / 8);
 }
 
 // === NEW FEATURE FUNCTIONS ===
@@ -2374,27 +2509,27 @@ function drawNetWorthMountain(canvas, computed, rawInput) {
  * @param {Object} biasResult - bias_detection from pipeline output
  */
 function renderBiasDetection(biasResult) {
-  const el = document.getElementById('r-bias-detection');
-  if (!el || !biasResult) return;
+    const el = document.getElementById('r-bias-detection');
+    if (!el || !biasResult) return;
 
-  const colorMap = {
-    green: 'var(--green)', yellow: 'var(--yellow)',
-    orange: 'var(--yellow)', red: 'var(--red)',
-  };
-  const bgMap = {
-    green: 'var(--green-bg)', yellow: 'var(--yellow-bg)',
-    orange: 'var(--yellow-bg)', red: 'var(--red-bg)',
-  };
-  const borderMap = {
-    green: 'var(--green-border)', yellow: 'var(--yellow-border)',
-    orange: 'var(--yellow-border)', red: 'var(--red-border)',
-  };
+    const colorMap = {
+        green: 'var(--green)', yellow: 'var(--yellow)',
+        orange: 'var(--yellow)', red: 'var(--red)',
+    };
+    const bgMap = {
+        green: 'var(--green-bg)', yellow: 'var(--yellow-bg)',
+        orange: 'var(--yellow-bg)', red: 'var(--red-bg)',
+    };
+    const borderMap = {
+        green: 'var(--green-border)', yellow: 'var(--yellow-border)',
+        orange: 'var(--yellow-border)', red: 'var(--red-border)',
+    };
 
-  const c = biasResult.display_color || 'green';
-  const icon = biasResult.integrity_score >= 80 ? '🛡' :
-               biasResult.integrity_score >= 60 ? '⚖' : '⚠';
+    const c = biasResult.display_color || 'green';
+    const icon = biasResult.integrity_score >= 80 ? '🛡' :
+        biasResult.integrity_score >= 60 ? '⚖' : '⚠';
 
-  el.innerHTML = `
+    el.innerHTML = `
     <div style="background:${bgMap[c]};border:1px solid ${borderMap[c]};
          border-radius:12px;padding:14px 18px;margin-bottom:16px;
          display:flex;align-items:flex-start;gap:14px">
@@ -2416,7 +2551,7 @@ function renderBiasDetection(biasResult) {
         </div>
         <div style="font-size:12px;color:var(--text-dim);line-height:1.5">
           ${esc(biasResult.bias_explanation ||
-            'AI reasoning aligns with mathematical analysis. No systematic bias detected.')}
+                'AI reasoning aligns with mathematical analysis. No systematic bias detected.')}
         </div>
       </div>
     </div>`;
@@ -2428,24 +2563,24 @@ function renderBiasDetection(biasResult) {
  * @param {HTMLInputElement} input - File input element
  */
 function handlePropertyPhotos(input) {
-  const files = Array.from(input.files).slice(0, 5);
-  STATE.propertyPhotoFiles = files;
+    const files = Array.from(input.files).slice(0, 5);
+    STATE.propertyPhotoFiles = files;
 
-  const strip = document.getElementById('photo-preview-strip');
-  strip.innerHTML = '';
-  strip.style.display = files.length ? 'flex' : 'none';
+    const strip = document.getElementById('photo-preview-strip');
+    strip.innerHTML = '';
+    strip.style.display = files.length ? 'flex' : 'none';
 
-  files.forEach(f => {
-    const img = document.createElement('img');
-    img.src = URL.createObjectURL(f);
-    img.className = 'photo-thumb';
-    strip.appendChild(img);
-  });
+    files.forEach(f => {
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        img.className = 'photo-thumb';
+        strip.appendChild(img);
+    });
 
-  if (files.length) {
-    document.getElementById('photo-drop-zone').classList.add('has-photos');
-    runPropertyInspection(files);
-  }
+    if (files.length) {
+        document.getElementById('photo-drop-zone').classList.add('has-photos');
+        runPropertyInspection(files);
+    }
 }
 
 /**
@@ -2454,33 +2589,33 @@ function handlePropertyPhotos(input) {
  * @param {File[]} files - Array of image files (max 5)
  */
 async function runPropertyInspection(files) {
-  const statusEl = document.getElementById('photo-inspection-status');
-  if (!statusEl) return;
-  statusEl.style.display = 'block';
-  statusEl.innerHTML = `
+    const statusEl = document.getElementById('photo-inspection-status');
+    if (!statusEl) return;
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `
     <div style="font-size:12px;color:var(--accent);padding:10px;
          background:rgba(250,204,21,0.06);border-radius:8px;margin-top:10px">
       <span style="animation:pulse-warn 1s infinite;display:inline-block">●</span>
       Gemini is inspecting your photos...
     </div>`;
 
-  const fd = new FormData();
-  files.forEach(f => fd.append('files', f));
-  fd.append('location_area', document.getElementById('location_area')?.value || 'Mumbai');
-  fd.append('property_price', document.getElementById('property_price')?.value || '0');
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    fd.append('location_area', document.getElementById('location_area')?.value || 'Mumbai');
+    fd.append('property_price', document.getElementById('property_price')?.value || '0');
 
-  try {
-    const res = await fetch(`${API}/api/v1/documents/inspect-property`, {
-      method: 'POST', body: fd,
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    STATE.visualInspectionResult = data;
+    try {
+        const res = await fetch(`${API}/api/v1/documents/inspect-property`, {
+            method: 'POST', body: fd,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        STATE.visualInspectionResult = data;
 
-    const scoreColor = data.visual_inspection_score >= 70 ? 'var(--green)' :
-                       data.visual_inspection_score >= 50 ? 'var(--yellow)' :
-                       'var(--red)';
-    statusEl.innerHTML = `
+        const scoreColor = data.visual_inspection_score >= 70 ? 'var(--green)' :
+            data.visual_inspection_score >= 50 ? 'var(--yellow)' :
+                'var(--red)';
+        statusEl.innerHTML = `
       <div style="padding:12px;background:var(--bg);border-radius:8px;
            border:1px solid var(--border);margin-top:10px">
         <div style="display:flex;justify-content:space-between;
@@ -2494,19 +2629,19 @@ async function runPropertyInspection(files) {
           </span>
         </div>
         ${data.structural_concerns?.length ?
-          `<div style="font-size:11px;color:var(--red);margin-bottom:4px">
+                `<div style="font-size:11px;color:var(--red);margin-bottom:4px">
              ⚠ ${esc(data.structural_concerns[0])}
            </div>` : ''}
         <div style="font-size:11px;color:var(--text-muted)">
           ${esc(data.recommendation)}
         </div>
       </div>`;
-  } catch (e) {
-    statusEl.innerHTML = `
+    } catch (e) {
+        statusEl.innerHTML = `
       <div style="font-size:11px;color:var(--text-muted);margin-top:8px">
         Visual inspection unavailable — analysis proceeds without images.
       </div>`;
-  }
+    }
 }
 
 /**
@@ -2515,15 +2650,15 @@ async function runPropertyInspection(files) {
  * @param {HTMLElement} el - The verdict word element (.v-word)
  */
 function animateVerdictEntrance(el) {
-  if (!el) return;
-  el.style.cssText = 'transform:scale(0.4);opacity:0;transition:none';
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    el.style.cssText = (
-      'transform:scale(1);opacity:1;' +
-      'transition:transform 400ms cubic-bezier(0.34,1.56,0.64,1),' +
-      'opacity 250ms ease'
-    );
-  }));
+    if (!el) return;
+    el.style.cssText = 'transform:scale(0.4);opacity:0;transition:none';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        el.style.cssText = (
+            'transform:scale(1);opacity:1;' +
+            'transition:transform 400ms cubic-bezier(0.34,1.56,0.64,1),' +
+            'opacity 250ms ease'
+        );
+    }));
 }
 
 /**
@@ -2531,22 +2666,22 @@ function animateVerdictEntrance(el) {
  * Implements peak-end rule: failure moments are designed, not instant.
  */
 function animateStressCards() {
-  const cards = document.querySelectorAll('.sc2');
-  cards.forEach((card, i) => {
-    card.style.opacity = '0';
-    card.style.transform = 'translateY(12px)';
-    setTimeout(() => {
-      card.style.transition = 'opacity 300ms ease, transform 300ms cubic-bezier(0.34,1.56,0.64,1)';
-      card.style.opacity = '1';
-      card.style.transform = 'translateY(0)';
-      if (card.classList.contains('fail')) {
+    const cards = document.querySelectorAll('.sc2');
+    cards.forEach((card, i) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(12px)';
         setTimeout(() => {
-          card.classList.add('burst-active');
-          setTimeout(() => card.classList.remove('burst-active'), 600);
-        }, 200);
-      }
-    }, i * 120);
-  });
+            card.style.transition = 'opacity 300ms ease, transform 300ms cubic-bezier(0.34,1.56,0.64,1)';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+            if (card.classList.contains('fail')) {
+                setTimeout(() => {
+                    card.classList.add('burst-active');
+                    setTimeout(() => card.classList.remove('burst-active'), 600);
+                }, 200);
+            }
+        }, i * 120);
+    });
 }
 
 /**
@@ -2554,22 +2689,22 @@ function animateStressCards() {
  * Replaces static "6 agents working" with "Analysis X% complete".
  */
 function updateAnalysisProgress() {
-  const agentIds = ['a1','a2','a3','a4','a5','a6'];
-  const interval = setInterval(() => {
-    const done = agentIds.filter(id => {
-      const el = document.getElementById(id);
-      return el && el.classList.contains('done');
-    }).length;
-    const pct = Math.round(done / agentIds.length * 100);
-    const subEl = document.querySelector('.load-sub');
-    if (!subEl) return;
-    const agentNames = ['Context', 'Financial + Property', 'Risk', 'Assumptions', 'Decision'];
-    const stageIdx = Math.min(Math.floor((done / agentIds.length) * agentNames.length), agentNames.length - 1);
-    subEl.textContent = pct < 100
-        ? `${pct}% complete · Running: ${agentNames[stageIdx]}`
-        : 'Composing your verdict...';
-    if (done === agentIds.length) clearInterval(interval);
-  }, 400);
+    const agentIds = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'];
+    const interval = setInterval(() => {
+        const done = agentIds.filter(id => {
+            const el = document.getElementById(id);
+            return el && el.classList.contains('done');
+        }).length;
+        const pct = Math.round(done / agentIds.length * 100);
+        const subEl = document.querySelector('.load-sub');
+        if (!subEl) return;
+        const agentNames = ['Context', 'Financial + Property', 'Risk', 'Assumptions', 'Decision'];
+        const stageIdx = Math.min(Math.floor((done / agentIds.length) * agentNames.length), agentNames.length - 1);
+        subEl.textContent = pct < 100
+            ? `${pct}% complete · Running: ${agentNames[stageIdx]}`
+            : 'Composing your verdict...';
+        if (done === agentIds.length) clearInterval(interval);
+    }, 400);
 }
 
 /**
@@ -2579,25 +2714,25 @@ function updateAnalysisProgress() {
 
 
 function initDocumentDropzones() {
-  document.querySelectorAll('.doc-upload-zone').forEach(zone => {
-    const input = zone.querySelector('input[type="file"]');
-    if (!input) return;
-    ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, e => {
-      e.preventDefault();
-      zone.classList.add('drag-active');
-    }));
-    ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, e => {
-      e.preventDefault();
-      zone.classList.remove('drag-active');
-    }));
-    zone.addEventListener('drop', e => {
-      const files = e.dataTransfer?.files;
-      if (!files || !files.length) return;
-      input.files = files;
-      if (input.id === 'ec-file') uploadEC(input);
-      if (input.id === 'loan-file') uploadLoanLetter(input);
+    document.querySelectorAll('.doc-upload-zone').forEach(zone => {
+        const input = zone.querySelector('input[type="file"]');
+        if (!input) return;
+        ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, e => {
+            e.preventDefault();
+            zone.classList.add('drag-active');
+        }));
+        ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, e => {
+            e.preventDefault();
+            zone.classList.remove('drag-active');
+        }));
+        zone.addEventListener('drop', e => {
+            const files = e.dataTransfer?.files;
+            if (!files || !files.length) return;
+            input.files = files;
+            if (input.id === 'ec-file') uploadEC(input);
+            if (input.id === 'loan-file') uploadLoanLetter(input);
+        });
     });
-  });
 }
 
 // === INITIALIZATION ===
@@ -2608,10 +2743,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Setup Indian number formatting on financial inputs
     ['monthly_income', 'spouse_income', 'liquid_savings', 'existing_emis',
-     'monthly_expenses', 'property_price', 'down_payment_available', 'current_rent'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) setupIndianNumberFormat(el);
-    });
+        'monthly_expenses', 'property_price', 'down_payment_available', 'current_rent'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) setupIndianNumberFormat(el);
+        });
 
     // Smart defaults for empty fields (formatted strings)
     const smartDefaults = {

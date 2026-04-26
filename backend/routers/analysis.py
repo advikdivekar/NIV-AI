@@ -1,6 +1,6 @@
 """
 Analysis endpoints:
-  POST /api/v1/analyze         — full 6-agent pipeline (rate-limited: 5/10min/IP)
+  POST /api/v1/analyze         — full 6-agent pipeline (rate-limited: 1000/min/IP)
   GET  /api/v1/calculate       — headless math engine, no LLM (rate-limited: 30/min/IP)
   GET  /api/v1/market/rates    — static home-loan rate reference (<50ms, no HTTP calls)
   POST /api/v1/tools/delta     — headless delta between two param sets (<50ms, no LLM)
@@ -29,26 +29,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["analysis"])
 
 DEMO_API_KEY: str | None = os.getenv("DEMO_API_KEY")
-_MARKET_RATES_PATH = Path(__file__).parent.parent / "data" / "market_rates.json"
-_MARKET_RATES_FALLBACK = {
-    "sbi_rate": 8.50,
-    "hdfc_rate": 8.70,
-    "icici_rate": 8.75,
-    "axis_rate": 8.85,
-    "kotak_rate": 8.90,
-    "min_rate": 8.50,
-    "max_rate": 9.90,
-    # Aliases used by frontend
-    "market_floor": 8.50,
-    "market_ceiling": 9.90,
-    "rbi_repo_rate": 6.50,
-    "last_updated": "April 2026",
-    "source": "Static reference — verify with your bank",
-    "data_source": "Static reference — verify with your bank",
-    "disclaimer": "Rates are indicative. Final rate depends on CIBIL score and bank policy.",
-}
-
-
 def _check_api_key(request: Request) -> None:
     """Enforce X-API-Key header when DEMO_API_KEY env var is set."""
     if DEMO_API_KEY and request.headers.get("X-API-Key") != DEMO_API_KEY:
@@ -294,38 +274,6 @@ async def calculate(
         result["delta"] = None
 
     result["response_time_ms"] = round((time.perf_counter() - t0) * 1000, 2)
-    return result
-
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/market/rates
-# ---------------------------------------------------------------------------
-
-@router.get("/market/rates")
-async def get_market_rates(user_rate: Optional[float] = None):
-    """
-    Returns current home loan market rates.
-
-    Attempts to read from backend/data/market_rates.json.
-    If that file is older than 24 hours or missing, returns hardcoded fallback.
-    Never makes external HTTP calls — response is always under 50ms.
-    If user_rate provided, also returns a rate_warning field.
-    """
-    try:
-        if _MARKET_RATES_PATH.exists():
-            age_seconds = time.time() - _MARKET_RATES_PATH.stat().st_mtime
-            if age_seconds < 86400:
-                rates = json.loads(_MARKET_RATES_PATH.read_text())
-                if user_rate is not None:
-                    floor = rates.get("min_rate", rates.get("market_floor", 8.5))
-                    rates["rate_warning"] = "above_market" if user_rate > floor + 0.5 else None
-                return rates
-    except Exception:
-        pass
-    result = dict(_MARKET_RATES_FALLBACK)
-    if user_rate is not None:
-        floor = result.get("min_rate", 8.5)
-        result["rate_warning"] = "above_market" if user_rate > floor + 0.5 else None
     return result
 
 

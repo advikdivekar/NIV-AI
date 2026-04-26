@@ -15,8 +15,10 @@ import logging
 import os
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request, Response
+from pydantic import BaseModel
+from typing import Optional
 
-from backend.integrations.whatsapp_bot import VERIFY_TOKEN, handle_incoming_message
+from backend.integrations.whatsapp_bot import VERIFY_TOKEN, handle_incoming_message, send_whatsapp_message, format_verdict_message, WHATSAPP_ENABLED
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
@@ -24,15 +26,47 @@ router = APIRouter(prefix="/api/v1")
 WHATSAPP_APP_SECRET = os.getenv("WHATSAPP_APP_SECRET", "")
 
 
+_ENV = os.getenv("ENVIRONMENT", "development").lower()
+
 def _verify_meta_signature(body: bytes, signature_header: str) -> bool:
     if not WHATSAPP_APP_SECRET:
-        return True  # Skip validation if secret not configured (dev mode)
+        if _ENV == "production":
+            logger.error("WHATSAPP_APP_SECRET not set in production — rejecting all webhook requests")
+            return False
+        logger.warning("WHATSAPP_APP_SECRET not set — skipping signature check (dev mode only)")
+        return True
     if not signature_header or not signature_header.startswith("sha256="):
         return False
     expected = "sha256=" + hmac.HMAC(
         WHATSAPP_APP_SECRET.encode(), body, hashlib.sha256
     ).hexdigest()
     return hmac.compare_digest(expected, signature_header)
+
+
+class SendReportRequest(BaseModel):
+    phone_number: str
+    report: dict
+    share_url: Optional[str] = ""
+
+
+@router.post("/whatsapp/send", include_in_schema=True)
+async def send_report_to_whatsapp(body: SendReportRequest):
+    """
+    Sends a formatted report summary to a phone number via WhatsApp.
+    Accepts a 10-or-12 digit phone string (e.g. 919876543210 or 9876543210).
+    """
+    if not WHATSAPP_ENABLED:
+        raise HTTPException(status_code=503, detail="WhatsApp is not enabled on this server.")
+    phone = body.phone_number.strip().replace("+", "").replace(" ", "")
+    if not phone.isdigit() or len(phone) < 10:
+        raise HTTPException(status_code=422, detail="Invalid phone number format.")
+    if len(phone) == 10:
+        phone = "91" + phone
+    msg = format_verdict_message(body.report, body.share_url or "")
+    success = await send_whatsapp_message(phone, msg)
+    if not success:
+        raise HTTPException(status_code=502, detail="WhatsApp message could not be delivered. Check server credentials.")
+    return {"status": "sent", "to": phone[:4] + "XXXXXX" + phone[-2:]}
 
 
 @router.get("/whatsapp/webhook", include_in_schema=True)

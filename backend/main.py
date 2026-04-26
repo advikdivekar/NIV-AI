@@ -50,7 +50,7 @@ if not allowed_origins:
     logger.warning("FRONTEND_URL not set — CORS restricted to no external origins")
 app.add_middleware(CORSMiddleware,
                    allow_origins=allowed_origins or ["http://localhost:3000", "http://localhost:8000"],
-                   allow_credentials=True, allow_methods=["GET", "POST"], allow_headers=["*"])
+                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 app.include_router(analysis_router)
 app.include_router(reports_router)
@@ -67,11 +67,11 @@ if os.path.isdir(frontend_dir):
 
     @app.get("/", include_in_schema=False)
     async def serve_frontend():
-        return FileResponse(os.path.join(frontend_dir, "landing.html"))
+        return FileResponse(os.path.join(frontend_dir, "index.html"))
 
-    @app.get("/landing.html", include_in_schema=False)
+    @app.get("/index.html", include_in_schema=False)
     async def serve_landing():
-        return FileResponse(os.path.join(frontend_dir, "landing.html"))
+        return FileResponse(os.path.join(frontend_dir, "index.html"))
 
     @app.get("/style.css", include_in_schema=False)
     async def serve_style():
@@ -79,7 +79,7 @@ if os.path.isdir(frontend_dir):
 
     @app.get("/calc", include_in_schema=False)
     async def serve_calc():
-        return FileResponse(os.path.join(frontend_dir, "index.html"))
+        return FileResponse(os.path.join(frontend_dir, "app.html"))
 
     @app.get("/app.js", include_in_schema=False)
     async def serve_app_js():
@@ -96,13 +96,18 @@ if os.path.isdir(frontend_dir):
                 html = f.read()
         except OSError:
             return JSONResponse(status_code=500, content={"detail": "Frontend unavailable"})
-        report_json = json.dumps(report.get("report", report), ensure_ascii=False)
-        created_at = report.get("created_at", "")
+        report_json = (
+            json.dumps(report.get("report", report), ensure_ascii=False)
+            .replace("</", "\\u003c/")
+            .replace("<!--", "\\u003c!--")
+        )
+        created_at = str(report.get("created_at", "")).replace('"', '\\"')
+        safe_report_id = str(report_id).replace('"', '\\"')
         injection = (
             f'<script>'
             f'window.__NIV_PRELOADED_REPORT__ = {report_json};'
             f'window.__NIV_SHARED_MODE__ = true;'
-            f'window.__NIV_REPORT_ID__ = "{report_id}";'
+            f'window.__NIV_REPORT_ID__ = "{safe_report_id}";'
             f'window.__NIV_REPORT_CREATED__ = "{created_at}";'
             f'</script>'
         )
