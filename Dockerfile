@@ -15,5 +15,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 8000
-# CHANGED: Look at main.py in the current folder, not a subfolder
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# CORRECTED: Point uvicorn to the backend folder where main.py actually lives
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
