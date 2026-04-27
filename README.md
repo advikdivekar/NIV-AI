@@ -209,7 +209,7 @@ flowchart LR
 | Backend | FastAPI | HTTP and WebSocket API layer |
 | Runtime | Python 3.11, Uvicorn | Backend execution |
 | Validation | Pydantic | Typed request and response schemas |
-| AI | Google Generative AI SDK | Gemini 2.0 Flash agent calls |
+| AI | Google Generative AI SDK, Groq, OpenRouter | Gemini Flash, Gemini Vision, structured agent calls, provider fallback |
 | Local AI fallback | Ollama | Local model path for development |
 | Database | Firestore | User sessions, inputs, simulation results, verdicts |
 | Storage | Google Cloud Storage | PDF report storage and signed URLs |
@@ -1523,18 +1523,16 @@ pie showData
 
 ## Roadmap
 
-Potential next improvements:
+Future development areas:
 
-- align checked-in frontend assets with the deployed `app.html` and `app.js`,
-- add OpenAPI examples for every endpoint,
-- add CI for deterministic tests and schema validation,
-- add frontend build/deployment documentation,
-- add staged Firebase/Cloud Run deployment environments,
-- add rate limiting and quota protection for AI-heavy endpoints,
-- add durable roundtable transcript replay in the UI,
-- add stronger document parsing validation for RERA, EC, and loan letters,
-- add automated PDF snapshot tests,
-- add observability for agent latency, token usage, and failure modes.
+- Multi-city expansion across Bengaluru, Hyderabad, Pune, and Delhi-NCR with local price medians, stamp duty rules, and RERA data so the adversarial audit is no longer Mumbai-only.
+- WhatsApp-native analysis that runs the full three-step intake, agent audit, and verdict delivery inside a chat flow without needing a browser or app download.
+- Ownership OS as a post-purchase companion with alerts for possession delays against RERA timelines, maintenance escalation, interest-rate resets, and resale conditions.
+- Property Health Score, a 0-100 trust layer for real estate that synthesizes RERA compliance, builder track record, litigation history, construction signals, and micro-market pricing.
+- Vernacular voice input for Hindi, Marathi, Tamil, and Telugu so the full intake flow works for buyers who prefer speaking over typing.
+- Family co-buyer mode where multiple decision-makers contribute finances and risk tolerance and the verdict adapts to the combined household picture.
+- Automated loan negotiation that generates bank-specific counter-offer scripts using live rate data and a buyer's credit and affordability profile.
+- Pre-disbursal lender screening as a B2B API that lets housing finance companies run the adversarial stress-test engine before a loan is approved and disbursed.
 
 ---
 
