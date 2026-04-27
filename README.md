@@ -1,5 +1,16 @@
 # NIV AI
 
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-Backend-009688?style=for-the-badge&logo=fastapi&logoColor=white">
+  <img alt="Firebase" src="https://img.shields.io/badge/Firebase-Hosting%20%2B%20Auth%20%2B%20Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=111111">
+  <img alt="Google Cloud" src="https://img.shields.io/badge/Google%20Cloud-Storage%20%2B%20Run-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Containerized-2496ED?style=for-the-badge&logo=docker&logoColor=white">
+  <img alt="Gemini" src="https://img.shields.io/badge/Gemini-Flash%20%2B%20Vision-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white">
+  <img alt="Groq" src="https://img.shields.io/badge/Groq-Agent%20Reasoning-F55036?style=for-the-badge&logo=groq&logoColor=white">
+  <img alt="OpenRouter" src="https://img.shields.io/badge/OpenRouter-Model%20Fallback-111111?style=for-the-badge&logo=openrouter&logoColor=white">
+</p>
+
 NIV AI is a risk-aware home buying decision intelligence system for Indian
 property buyers. It combines deterministic financial math, India-specific real
 estate cost rules, behavioral bias detection, multi-agent AI reasoning, and
@@ -202,20 +213,49 @@ flowchart LR
 
 ## Technology Stack
 
-| Layer | Technology | Purpose |
-|---|---|---|
-| Frontend | HTML, CSS, JavaScript | Static web app, wizard, report UI, charts |
-| Hosting | Firebase Hosting | CDN-backed static frontend hosting |
-| Backend | FastAPI | HTTP and WebSocket API layer |
-| Runtime | Python 3.11, Uvicorn | Backend execution |
-| Validation | Pydantic | Typed request and response schemas |
-| AI | Google Generative AI SDK | Gemini 2.0 Flash agent calls |
-| Local AI fallback | Ollama | Local model path for development |
-| Database | Firestore | User sessions, inputs, simulation results, verdicts |
-| Storage | Google Cloud Storage | PDF report storage and signed URLs |
-| PDF | ReportLab | Report rendering |
-| Auth | Firebase Auth, Firebase Admin SDK | Token verification and scoped data access |
-| Deployment | Docker, Cloud Run or Railway | Containerized backend deployment |
+### Logo Map
+
+These badges represent the major technologies, services, APIs, and libraries
+used by the project or called out by the architecture and cost model.
+
+<p>
+  <img alt="HTML5" src="https://img.shields.io/badge/HTML5-Frontend-E34F26?style=flat-square&logo=html5&logoColor=white">
+  <img alt="CSS3" src="https://img.shields.io/badge/CSS3-Styling-1572B6?style=flat-square&logo=css3&logoColor=white">
+  <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-Client%20Logic-F7DF1E?style=flat-square&logo=javascript&logoColor=111111">
+  <img alt="Python" src="https://img.shields.io/badge/Python-Backend-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-API-009688?style=flat-square&logo=fastapi&logoColor=white">
+  <img alt="Pydantic" src="https://img.shields.io/badge/Pydantic-Schemas-E92063?style=flat-square&logo=pydantic&logoColor=white">
+  <img alt="Uvicorn" src="https://img.shields.io/badge/Uvicorn-ASGI-499848?style=flat-square&logo=python&logoColor=white">
+  <img alt="Firebase" src="https://img.shields.io/badge/Firebase-Hosting%20Auth%20Firestore-FFCA28?style=flat-square&logo=firebase&logoColor=111111">
+  <img alt="Firestore" src="https://img.shields.io/badge/Firestore-Database-FFCA28?style=flat-square&logo=firebase&logoColor=111111">
+  <img alt="Google Cloud" src="https://img.shields.io/badge/Google%20Cloud-Storage%20Run-4285F4?style=flat-square&logo=googlecloud&logoColor=white">
+  <img alt="Gemini" src="https://img.shields.io/badge/Gemini-Flash%20Vision-8E75B2?style=flat-square&logo=googlegemini&logoColor=white">
+  <img alt="Groq" src="https://img.shields.io/badge/Groq-Reasoning-F55036?style=flat-square&logo=groq&logoColor=white">
+  <img alt="OpenRouter" src="https://img.shields.io/badge/OpenRouter-Fallback-111111?style=flat-square&logo=openrouter&logoColor=white">
+  <img alt="Ollama" src="https://img.shields.io/badge/Ollama-Local%20Fallback-000000?style=flat-square&logo=ollama&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Container-2496ED?style=flat-square&logo=docker&logoColor=white">
+  <img alt="Railway" src="https://img.shields.io/badge/Railway-Backend%20Hosting-0B0D0E?style=flat-square&logo=railway&logoColor=white">
+  <img alt="ReportLab" src="https://img.shields.io/badge/ReportLab-PDF%20Reports-B91C1C?style=flat-square&logo=adobeacrobatreader&logoColor=white">
+  <img alt="WhatsApp" src="https://img.shields.io/badge/WhatsApp-Report%20Delivery-25D366?style=flat-square&logo=whatsapp&logoColor=white">
+  <img alt="Tesseract OCR" src="https://img.shields.io/badge/Tesseract-OCR-5A67D8?style=flat-square&logo=python&logoColor=white">
+  <img alt="RBI" src="https://img.shields.io/badge/RBI-Rate%20Scraping-1E3A8A?style=flat-square&logo=bankofamerica&logoColor=white">
+  <img alt="MahaRERA" src="https://img.shields.io/badge/MahaRERA-Public%20Lookup-065F46?style=flat-square&logo=googlechrome&logoColor=white">
+</p>
+
+| Layer | Logo | Technology | Purpose |
+|---|---|---|---|
+| Frontend | <img alt="HTML5" src="https://img.shields.io/badge/-HTML5-E34F26?logo=html5&logoColor=white"> <img alt="CSS3" src="https://img.shields.io/badge/-CSS3-1572B6?logo=css3&logoColor=white"> <img alt="JavaScript" src="https://img.shields.io/badge/-JavaScript-F7DF1E?logo=javascript&logoColor=111111"> | HTML, CSS, JavaScript | Static web app, wizard, report UI, charts |
+| Hosting | <img alt="Firebase" src="https://img.shields.io/badge/-Firebase-FFCA28?logo=firebase&logoColor=111111"> | Firebase Hosting | CDN-backed static frontend hosting |
+| Backend | <img alt="FastAPI" src="https://img.shields.io/badge/-FastAPI-009688?logo=fastapi&logoColor=white"> | FastAPI | HTTP and WebSocket API layer |
+| Runtime | <img alt="Python" src="https://img.shields.io/badge/-Python-3776AB?logo=python&logoColor=white"> <img alt="Uvicorn" src="https://img.shields.io/badge/-Uvicorn-499848?logo=python&logoColor=white"> | Python 3.11, Uvicorn | Backend execution |
+| Validation | <img alt="Pydantic" src="https://img.shields.io/badge/-Pydantic-E92063?logo=pydantic&logoColor=white"> | Pydantic | Typed request and response schemas |
+| AI | <img alt="Gemini" src="https://img.shields.io/badge/-Gemini-8E75B2?logo=googlegemini&logoColor=white"> <img alt="Groq" src="https://img.shields.io/badge/-Groq-F55036?logo=groq&logoColor=white"> <img alt="OpenRouter" src="https://img.shields.io/badge/-OpenRouter-111111?logo=openrouter&logoColor=white"> | Google Generative AI SDK, Groq, OpenRouter | Gemini Flash, Gemini Vision, structured agent calls, provider fallback |
+| Local AI fallback | <img alt="Ollama" src="https://img.shields.io/badge/-Ollama-000000?logo=ollama&logoColor=white"> | Ollama | Local model path for development |
+| Database | <img alt="Firestore" src="https://img.shields.io/badge/-Firestore-FFCA28?logo=firebase&logoColor=111111"> | Firestore | User sessions, inputs, simulation results, verdicts |
+| Storage | <img alt="Google Cloud Storage" src="https://img.shields.io/badge/-Cloud%20Storage-4285F4?logo=googlecloud&logoColor=white"> | Google Cloud Storage | PDF report storage and signed URLs |
+| PDF | <img alt="ReportLab" src="https://img.shields.io/badge/-ReportLab-B91C1C?logo=adobeacrobatreader&logoColor=white"> | ReportLab | Report rendering |
+| Auth | <img alt="Firebase Auth" src="https://img.shields.io/badge/-Firebase%20Auth-FFCA28?logo=firebase&logoColor=111111"> | Firebase Auth, Firebase Admin SDK | Token verification and scoped data access |
+| Deployment | <img alt="Docker" src="https://img.shields.io/badge/-Docker-2496ED?logo=docker&logoColor=white"> <img alt="Railway" src="https://img.shields.io/badge/-Railway-0B0D0E?logo=railway&logoColor=white"> <img alt="Cloud Run" src="https://img.shields.io/badge/-Cloud%20Run-4285F4?logo=googlecloud&logoColor=white"> | Docker, Cloud Run or Railway | Containerized backend deployment |
 
 The stack is intentionally split into static delivery, deterministic compute,
 AI reasoning, and cloud persistence so each layer can evolve independently.
